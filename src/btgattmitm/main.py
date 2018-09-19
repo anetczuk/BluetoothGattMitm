@@ -18,7 +18,7 @@ import logging
 import cProfile
 
 from btgattmitm.connector import Connector
-# from btgattmitm.mitmdevice import MITMDevice
+from btgattmitm.mitmdevice import MITMDevice
 
 
 
@@ -28,9 +28,8 @@ _LOGGER = logging.getLogger(__name__)
 
 def startMITM(btServiceAddress):
     connection = Connector(btServiceAddress)
-    connection.print_services()
-#     device = MITMDevice()
-#     device.start( connection )
+    device = MITMDevice()
+    device.start( connection )
     return 0
 
 
