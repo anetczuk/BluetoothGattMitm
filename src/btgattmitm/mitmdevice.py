@@ -25,7 +25,7 @@
 import logging
 
 from btgattmitm.servicemanager import ServiceManager
-# from btgattmitm.servicemock import ServiceMock
+from btgattmitm.servicemock import ServiceMock
 
 
 
@@ -52,15 +52,15 @@ class MITMDevice():
     def start(self, connector):
         _LOGGER.debug("Configuring MITM")
         
-#         serviceIndex = 0
-#         bus = self.manager.bus
-#         
-#         serviceList = connector.get_services()
-#         for s in serviceList:
-#             service = ServiceMock( s, bus, serviceIndex )
-#             self.manager.register_service(service)
-#             self.servceList.append( service )
-#             serviceIndex += 1
+        serviceIndex = 0
+        bus = self.manager.bus
+         
+        serviceList = connector.get_services()
+        for s in serviceList:
+            service = ServiceMock( s, bus, serviceIndex )
+            self.manager.register_service(service)
+            self.servceList.append( service )
+            serviceIndex += 1
         
         self.manager.run()
     
