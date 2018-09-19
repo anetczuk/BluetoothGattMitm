@@ -5,9 +5,8 @@
 import logging
 
 import dbus.service
-import gobject
 
-from exception import *
+from exception import InvalidArgsException, NotSupportedException
 
 
 
