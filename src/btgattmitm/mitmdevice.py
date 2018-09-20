@@ -55,6 +55,10 @@ class MITMDevice():
         bus = self.manager.bus
          
         serviceList = connector.get_services()
+        if serviceList == None:
+            _LOGGER.debug("Could not get list of services")
+            return
+                    
         for s in serviceList:
             service = ServiceMock( s, bus, serviceIndex )
             self.manager.register_service(service)
@@ -65,4 +69,7 @@ class MITMDevice():
     
     def stop(self):
         _LOGGER.debug("Stopping MITM")
+        self.servceList = []
+        if self.manager != None:
+            self.manager.stop()
     

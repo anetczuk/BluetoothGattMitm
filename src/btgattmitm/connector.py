@@ -52,7 +52,7 @@ class Connector(btle.DefaultDelegate):
     def get_services(self):
         peripheral = self._connect()
         if peripheral == None:
-            return
+            return None
         return peripheral.getServices()
     
     def print_services(self):
@@ -93,6 +93,9 @@ class Connector(btle.DefaultDelegate):
         
     def disconnect(self):
         _LOGGER.debug("Disconnecting")
+        if self._conn != None:
+            self._conn.disconnect()
+        self._conn = None
     
     def handleNotification(self, cHandle, data):
         _LOGGER.info("new notification")

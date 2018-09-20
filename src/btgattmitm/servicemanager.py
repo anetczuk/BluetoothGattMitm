@@ -32,10 +32,6 @@ class ServiceManager():
         self.bus = None
         self.bluez_manager = None
         self._init()
-    
-    def __del__(self):
-        pass
-
 
     def register_service(self, service):
         service.register(self.bluez_manager)
@@ -44,6 +40,9 @@ class ServiceManager():
         _LOGGER.debug("Starting main loop")
         self.mainloop.run()
 
+    def stop(self):
+        _LOGGER.debug( "Stopping main loop" )
+        self.mainloop = None
 
     def _init(self):
         _LOGGER.debug("Initializing service manager")
