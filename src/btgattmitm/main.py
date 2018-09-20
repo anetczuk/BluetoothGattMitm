@@ -46,6 +46,36 @@ _LOGGER = logging.getLogger(__name__)
 
 
 
+def configureLogger(logFile):
+    loggerFormat = '%(asctime)s,%(msecs)-3d %(levelname)-8s %(threadName)s [%(filename)s:%(lineno)d] %(message)s'
+    loggerDate = '%Y-%m-%d %H:%M:%S'
+    
+    streamHandler = logging.StreamHandler( stream = sys.stdout )
+    fileHandler = logging.handlers.RotatingFileHandler( filename = logFile, maxBytes=1024*1024, backupCount=5 )
+    
+    if sys.version_info >= (3, 3):
+        #### for Python 3.3
+        logging.basicConfig( format = loggerFormat,
+                             datefmt = loggerDate, 
+                             level = logging.DEBUG,
+                             handlers = [ streamHandler, fileHandler ]
+                             )
+    else:
+        #### for Python 2
+        rootLogger = logging.getLogger()
+        rootLogger.setLevel( logging.DEBUG )
+        
+        logFormatter = logging.Formatter( loggerFormat, loggerDate )
+        
+        streamHandler.setLevel( logging.DEBUG )
+        streamHandler.setFormatter( logFormatter )
+        rootLogger.addHandler( streamHandler )
+        
+        fileHandler.setLevel( logging.DEBUG )
+        fileHandler.setFormatter( logFormatter )
+        rootLogger.addHandler( fileHandler )
+
+
 def startMITM(btServiceAddress):
 #     with Connector(btServiceAddress) as connection:
     try:
@@ -61,37 +91,9 @@ def startMITM(btServiceAddress):
     return 0
 
 
-def configureLogger(logFile):
-    loggerFormat = '%(asctime)s,%(msecs)-3d %(levelname)-8s %(threadName)s [%(filename)s:%(lineno)d] %(message)s'
-    loggerDate = '%Y-%m-%d %H:%M:%S'
-    
-    
-    # #### for Python 3.3
-    # logging.basicConfig( format = loggerFormat,
-    #                      datefmt = loggerDate, 
-    #                      level = logging.DEBUG,
-    #                      handlers=[ logging.StreamHandler( stream = sys.stdout ),
-    #                                 logging.FileHandler( filename = logFile, mode = 'a' ) ]
-    #                      )
-    
-    #### for Python 2
-    rootLogger = logging.getLogger()
-    rootLogger.setLevel( logging.DEBUG )
-    
-    logFormatter = logging.Formatter( loggerFormat, loggerDate )
-    
-    logHandler = logging.StreamHandler( stream = sys.stdout )
-    logHandler.setLevel( logging.DEBUG )
-    logHandler.setFormatter( logFormatter )
-    rootLogger.addHandler( logHandler )
-    
-    logHandler = logging.handlers.RotatingFileHandler( filename = logFile,  maxBytes=1024*1024, backupCount=5 )
-    logHandler.setLevel( logging.DEBUG )
-    logHandler.setFormatter( logFormatter )
-    rootLogger.addHandler( logHandler )
-
 
 ## ========================================================================
+
 
 
 if __name__ != '__main__':
