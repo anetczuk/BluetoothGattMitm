@@ -31,11 +31,10 @@ import os
 script_dir = os.path.dirname(__file__) 
 sys.path.append(os.path.abspath( os.path.join(os.path.dirname(__file__), "..") ))
 # sys.path.append(os.path.abspath( os.path.join(os.path.dirname(__file__), "../../lib") ))
-
-import traceback 
+ 
 import time 
 import argparse
-import logging
+import logging.handlers
 import cProfile
 
 from btgattmitm.connector import Connector
@@ -62,6 +61,38 @@ def startMITM(btServiceAddress):
     return 0
 
 
+def configureLogger(logFile):
+    loggerFormat = '%(asctime)s,%(msecs)-3d %(levelname)-8s %(threadName)s [%(filename)s:%(lineno)d] %(message)s'
+    loggerDate = '%Y-%m-%d %H:%M:%S'
+    
+    
+    # #### for Python 3.3
+    # logging.basicConfig( format = loggerFormat,
+    #                      datefmt = loggerDate, 
+    #                      level = logging.DEBUG,
+    #                      handlers=[ logging.StreamHandler( stream = sys.stdout ),
+    #                                 logging.FileHandler( filename = logFile, mode = 'a' ) ]
+    #                      )
+    
+    #### for Python 2
+    rootLogger = logging.getLogger()
+    rootLogger.setLevel( logging.DEBUG )
+    
+    logFormatter = logging.Formatter( loggerFormat, loggerDate )
+    
+    logHandler = logging.StreamHandler( stream = sys.stdout )
+    logHandler.setLevel( logging.DEBUG )
+    logHandler.setFormatter( logFormatter )
+    rootLogger.addHandler( logHandler )
+    
+    logHandler = logging.handlers.RotatingFileHandler( filename = logFile,  maxBytes=1024*1024, backupCount=5 )
+    logHandler.setLevel( logging.DEBUG )
+    logHandler.setFormatter( logFormatter )
+    rootLogger.addHandler( logHandler )
+
+
+## ========================================================================
+
 
 if __name__ != '__main__':
     sys.exit(0)
@@ -73,31 +104,20 @@ parser.add_argument('--pfile', action='store', default=None, help='Profile the c
 # parser.add_argument('--file', action='store', required=True, help='File with data' )
 parser.add_argument('--connect', action='store', required=True, help='BT address to connect to' )
  
-  
 
 args = parser.parse_args()
 
 
-loggerFormat = '%(asctime)s,%(msecs)-3d %(levelname)-8s %(threadName)s [%(filename)s:%(lineno)d] %(message)s'
-
 logDir = os.path.join(script_dir, "../../tmp")
 if os.path.isdir( logDir ) == False:
     logDir = os.getcwd()
+logFile = os.path.join(logDir, "log.txt")
     
-logFile = os.path.join(logDir, "log.txt")    
+configureLogger( logFile )
 
-logging.basicConfig( format = loggerFormat,
-                     datefmt = '%H:%M:%S', 
-                     level = logging.DEBUG,
-                     handlers=[ logging.FileHandler( filename = logFile, mode = "a+" ),
-                                logging.StreamHandler( stream = sys.stdout )]
-                     )
 
-_LOGGER.debug("\n\n")
 _LOGGER.debug("Starting the application")
-
 _LOGGER.debug("Logger log file: %s" % logFile)
-
 
 
 starttime = time.time()
@@ -122,23 +142,23 @@ try:
 #     print "Error: ", e, " check if BT is powered on"
 
 except:
-    traceback.print_exc()
+    _LOGGER.exception("Exception occured")
     raise
 
 finally:
-    print( "" )                    ## print new line
+    _LOGGER.info( "" )                    ## print new line
     if profiler != None:
         profiler.disable()
         if profiler_outfile == None:
-            print( "Generating profiler data" )
+            _LOGGER.info( "Generating profiler data" )
             profiler.print_stats(1)
         else:
-            print( "Storing profiler data to", profiler_outfile )
+            _LOGGER.info( "Storing profiler data to %s", profiler_outfile )
             profiler.dump_stats( profiler_outfile )
-            print( "pyprof2calltree -k -i", profiler_outfile )
+            _LOGGER.info( "pyprof2calltree -k -i %s", profiler_outfile )
          
     timeDiff = (time.time()-starttime)*1000.0
-    print( "Calculation time: {:13.8f}ms".format(timeDiff) )
+    _LOGGER.info( "Calculation time: {:13.8f}ms\n\n".format(timeDiff) )
     
     sys.exit(exitCode)
 
