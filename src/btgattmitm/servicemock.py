@@ -24,8 +24,6 @@
 
 import logging
 
-from bluepy import btle
-
 from btgattmitm.servicebase import ServiceBase, CharacteristicBase
 
 

@@ -51,42 +51,45 @@ class ServiceManager():
         dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
         self.bus = dbus.SystemBus()
     
+#         self._initAdvertisement()
+        
+        self._initGattService()
+        
+        self.mainloop = gobject.MainLoop()
+
+    def _initAdvertisement(self):
         advertise_adapter = find_advertise_adapter(self.bus)
         if not advertise_adapter:
             _LOGGER.error('LEAdvertisingManager1 interface not found')
             return
-    
-        gatt_adapter = find_gatt_adapter(self.bus)
-        if not gatt_adapter:
-            _LOGGER.error('GattManager1 interface not found')
-            return
-    
-    
+        
         advertiseObj = self.bus.get_object(BLUEZ_SERVICE_NAME, advertise_adapter)
         adapter_props = dbus.Interface(advertiseObj, DBUS_PROP_IFACE);
-    
         adapter_props.Set("org.bluez.Adapter1", "Powered", dbus.Boolean(1))
-    
+         
         ad_manager = dbus.Interface(advertiseObj, LE_ADVERTISING_MANAGER_IFACE)
-    
+     
         test_advertisement = TestAdvertisement(self.bus, 0)
-    
-        gattObj = self.bus.get_object(BLUEZ_SERVICE_NAME, gatt_adapter)
-        self.bluez_manager = dbus.Interface( gattObj, GATT_MANAGER_IFACE )
-    
-        self.mainloop = gobject.MainLoop()
-    
+     
         ad_manager.RegisterAdvertisement(test_advertisement.get_path(), {},
                                          reply_handler=self._register_ad_cb,
                                          error_handler=self._register_ad_error_cb)
-
+        
     def _register_ad_cb(self):
         _LOGGER.info( 'Advertisement registered' )
-
 
     def _register_ad_error_cb(self, error):
         _LOGGER.error( 'Failed to register advertisement: %s', str(error) )
         self.mainloop.quit()
+        
+    def _initGattService(self):
+        gatt_adapter = find_gatt_adapter(self.bus)
+        if not gatt_adapter:
+            _LOGGER.error('GattManager1 interface not found')
+            return
+            
+        gattObj = self.bus.get_object(BLUEZ_SERVICE_NAME, gatt_adapter)
+        self.bluez_manager = dbus.Interface( gattObj, GATT_MANAGER_IFACE )
 
 
 ## ====================================================================
