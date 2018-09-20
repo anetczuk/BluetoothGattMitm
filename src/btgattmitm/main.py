@@ -32,6 +32,7 @@ script_dir = os.path.dirname(__file__)
 sys.path.append(os.path.abspath( os.path.join(os.path.dirname(__file__), "..") ))
 # sys.path.append(os.path.abspath( os.path.join(os.path.dirname(__file__), "../../lib") ))
 
+import traceback 
 import time 
 import argparse
 import logging
@@ -47,9 +48,17 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def startMITM(btServiceAddress):
-    connection = Connector(btServiceAddress)
-    device = MITMDevice()
-    device.start( connection )
+#     with Connector(btServiceAddress) as connection:
+    try:
+        connection = Connector(btServiceAddress)
+        device = MITMDevice()
+        device.start( connection )
+    finally:
+        if device != None:
+            device.stop()
+        if connection != None:
+            connection.disconnect()
+    
     return 0
 
 
@@ -112,10 +121,9 @@ try:
 # except BluetoothError as e:
 #     print "Error: ", e, " check if BT is powered on"
 
-except Exception as e:
-    ## handle thrown exception properly -- it happens that sometimes some exceptions
-    ## are ignored without any message
-    _LOGGER.exception(e)
+except:
+    traceback.print_exc()
+    raise
 
 finally:
     print( "" )                    ## print new line

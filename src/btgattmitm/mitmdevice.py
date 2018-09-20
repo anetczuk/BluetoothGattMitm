@@ -45,9 +45,8 @@ class MITMDevice():
         self.manager = ServiceManager()
         self.servceList = []
     
-    def __del__(self):
-        pass
-
+#     def __del__(self):
+#         print "destroying", self.__class__.__name__
 
     def start(self, connector):
         _LOGGER.debug("Configuring MITM")
@@ -64,4 +63,6 @@ class MITMDevice():
         
         self.manager.run()
     
+    def stop(self):
+        _LOGGER.debug("Stopping MITM")
     

@@ -46,9 +46,8 @@ class Connector(btle.DefaultDelegate):
         self.address = mac
         self._conn = None
     
-    def __del__(self):
-        #TODO: make disconnection on CTRL+C
-        self._disconnect()
+#     def __del__(self):
+#         print "destroying", self.__class__.__name__
     
     def get_services(self):
         peripheral = self._connect()
@@ -92,7 +91,7 @@ class Connector(btle.DefaultDelegate):
                 
         return None
         
-    def _disconnect(self):
+    def disconnect(self):
         _LOGGER.debug("Disconnecting")
     
     def handleNotification(self, cHandle, data):
