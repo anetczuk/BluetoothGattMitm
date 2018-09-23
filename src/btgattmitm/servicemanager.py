@@ -31,6 +31,10 @@ class ServiceManager():
         self.mainloop = None
         self.bus = None
         self.bluez_manager = None
+        
+        self.adManager = None
+        self.adRegistered = False
+        
         self._init()
 
     def register_service(self, service):
@@ -42,15 +46,24 @@ class ServiceManager():
 
     def stop(self):
         _LOGGER.debug( "Stopping main loop" )
+        if self.adManager != None and self.adRegistered:
+            _LOGGER.error('Unregistering advertisement')
+            adPath = self.testAdvertisement.get_path()
+            self.adManager.UnregisterAdvertisement( adPath )
+        
         self.mainloop = None
 
     def _init(self):
         _LOGGER.debug("Initializing service manager")
         
+        ## required for Python threading to work
+        gobject.threads_init()
+        dbus.mainloop.glib.threads_init()
         dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+        
         self.bus = dbus.SystemBus()
     
-#         self._initAdvertisement()
+        ## self._initAdvertisement()
         
         self._initGattService()
         
@@ -66,19 +79,22 @@ class ServiceManager():
         adapter_props = dbus.Interface(advertiseObj, DBUS_PROP_IFACE);
         adapter_props.Set("org.bluez.Adapter1", "Powered", dbus.Boolean(1))
          
-        ad_manager = dbus.Interface(advertiseObj, LE_ADVERTISING_MANAGER_IFACE)
+        self.adManager = dbus.Interface(advertiseObj, LE_ADVERTISING_MANAGER_IFACE)
      
-        test_advertisement = TestAdvertisement(self.bus, 0)
-     
-        ad_manager.RegisterAdvertisement(test_advertisement.get_path(), {},
-                                         reply_handler=self._register_ad_cb,
-                                         error_handler=self._register_ad_error_cb)
+        self.adRegistered = False
+        self.testAdvertisement = TestAdvertisement(self.bus, 0)
+        adPath = self.testAdvertisement.get_path()
+        self.adManager.RegisterAdvertisement(adPath, {},
+                                             reply_handler=self._register_ad_cb,
+                                             error_handler=self._register_ad_error_cb)
         
     def _register_ad_cb(self):
         _LOGGER.info( 'Advertisement registered' )
+        self.adRegistered = True
 
     def _register_ad_error_cb(self, error):
         _LOGGER.error( 'Failed to register advertisement: %s', str(error) )
+        self.adRegistered = False
         self.mainloop.quit()
         
     def _initGattService(self):
