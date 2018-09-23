@@ -22,16 +22,43 @@
 # SOFTWARE.
 #
 
+import struct
 import logging
 
 from bluepy import btle
 
+from .synchronized import synchronized
+from .exception import InvalidStateError
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
 
+class CallbackContainer():
+    
+    def __init__(self):
+        self.container = dict()
+    
+    def register(self, handle, callback):
+        handlers = self.get( handle )
+        if handlers == None:
+            handlers = set()
+            self.container[handle] = handlers
+        handlers.add( callback )
+    
+    def unregister(self, handle, callback):
+        handlers = self.get( handle )
+        if handlers == None:
+            return
+        handlers.discard( callback )
+
+    def get(self, handle):
+        if handle in self.container:
+            return self.container[handle]
+        return None
+            
+    
 class Connector(btle.DefaultDelegate):
     '''
     classdocs
@@ -45,6 +72,7 @@ class Connector(btle.DefaultDelegate):
         
         self.address = mac
         self._conn = None
+        self.callbacks = CallbackContainer()
     
 #     def __del__(self):
 #         print "destroying", self.__class__.__name__
@@ -74,6 +102,7 @@ class Connector(btle.DefaultDelegate):
 # #                 _LOGGER.debug("Desc: %s uuid:%s h:%i v:%s", desc, desc.uuid, desc.handle, desc.read() )
 #                 _LOGGER.debug("Desc: %s uuid:%s h:%i", desc, desc.uuid, desc.handle )
     
+    @synchronized
     def _connect(self):
         if self._conn != None:
             return self._conn
@@ -90,7 +119,8 @@ class Connector(btle.DefaultDelegate):
                 _LOGGER.debug("Unable to connect to the device %s, retrying: %s", self.address, ex)
                 
         return None
-        
+    
+    @synchronized    
     def disconnect(self):
         _LOGGER.debug("Disconnecting")
         if self._conn != None:
@@ -98,12 +128,49 @@ class Connector(btle.DefaultDelegate):
         self._conn = None
     
     def handleNotification(self, cHandle, data):
-        _LOGGER.info("new notification")
-        btle.DefaultDelegate.handleNotification(cHandle, data)
+        try:
+            ## _LOGGER.debug("new notification: %s >%s<", cHandle, data)
+            callbacks = self.callbacks.get( cHandle )
+            if callbacks == None:
+                ##_LOGGER.debug("no callback found for handle: %i", cHandle)
+                return
+            for function in callbacks:
+                if function != None:
+                    function( data )
+        except:
+            _LOGGER.exception("notification exception")
 
     def handleDiscovery(self, scanEntry, isNewDev, isNewData):
-        _LOGGER.info("new discovery")
-        btle.DefaultDelegate.handleDiscovery(scanEntry, isNewDev, isNewData)
+        _LOGGER.debug("new discovery: %s %s %s", scanEntry, isNewDev, isNewData)
+
+    @synchronized
+    def writeCharacteristic(self, handle, val, withResponse=False):
+        if self._conn == None:
+            raise InvalidStateError("not connected")
+        return self._conn.writeCharacteristic(handle, val, withResponse)
     
+    @synchronized
+    def readCharacteristic(self, handle):
+        if self._conn == None:
+            raise InvalidStateError("not connected")
+        return self._conn.readCharacteristic(handle)
+
+    @synchronized
+    def subscribeForNotification(self, handle, callback):
+        data = struct.pack('BB', 1, 0)
+        ret = self.writeCharacteristic( handle, data )
+        self.callbacks.register( handle, callback )
+        return ret
     
-    
+    @synchronized
+    def unsubscribeFromNotification(self, handle, callback):
+        data = struct.pack('BB', 0, 0)
+        ret = self.writeCharacteristic( handle, data )
+        self.callbacks.unregister( handle, callback )
+        return ret
+
+    @synchronized
+    def processNotifications(self):
+        if self._conn != None:
+            self._conn.waitForNotifications(0.1)
+        
