@@ -166,7 +166,7 @@ class CharacteristicBase(dbus.service.Object):
         try:
             value = self.readValueHandler()
             wrapped = self._wrap(value)
-            print self.__class__.__name__, "sending data:", repr(value), "->", repr(wrapped)
+            _LOGGER.debug( "Sending data to client: %s", repr(wrapped) )
             return wrapped
         except:
             logging.exception("Exception occured")
@@ -176,8 +176,8 @@ class CharacteristicBase(dbus.service.Object):
     @dbus.service.method(GATT_CHRC_IFACE, in_signature='ay')
     def WriteValue(self, value):
         try:
+            _LOGGER.debug( "Received data from client: %s", repr(value) )        
             unwrapped = self._unwrap(value)
-            print self.__class__.__name__, "received data:", repr(value), "->", repr(unwrapped), [hex(no) for no in unwrapped]        
             self.writeValueHandler(unwrapped)
         except:
             logging.exception("Exception occured")
@@ -185,14 +185,14 @@ class CharacteristicBase(dbus.service.Object):
 
     def _wrap(self, value):
         ##return dbus.Array( value, dbus.Signature('ay') )
-        if isinstance(value, list):
+        if isinstance(value, list) or isinstance(value, bytearray):
             vallist = []
             for x in value:
                 vallist = vallist + self._wrap(x)
             return dbus.Array( vallist )
         if isinstance(value, int):
             return dbus.Array( [dbus.Byte( int(value) )] )
-        print('Unsupported type:', repr(value))
+        _LOGGER.debug('Unsupported type: %s %s', repr(value), type(value))
         return None
     
     def _unwrap(self, value):
@@ -201,7 +201,7 @@ class CharacteristicBase(dbus.service.Object):
             return vallist
         if isinstance(value, dbus.Byte):
             return int(value)
-        print 'Unsupported type:', repr(value) 
+        _LOGGER.debug( 'Unsupported type: %s', repr(value) ) 
         return None
 
     @dbus.service.method(GATT_CHRC_IFACE)
@@ -221,19 +221,19 @@ class CharacteristicBase(dbus.service.Object):
             raise
 
     def readValueHandler(self):
-        print('Default ReadValue called, returning error')
+        _LOGGER.debug('Default ReadValue called, returning error')
         raise NotSupportedException()
         
     def writeValueHandler(self, value):
-        print('Default WriteValue called, returning error')
+        _LOGGER.debug('Default WriteValue called, returning error')
         raise NotSupportedException()
         
     def startNotifyHandler(self):
-        print('Default StartNotify called, returning error')
+        _LOGGER.debug('Default StartNotify called, returning error')
         raise NotSupportedException()
         
     def stopNotifyHandler(self):
-        print('Default StopNotify called, returning error')
+        _LOGGER.debug('Default StopNotify called, returning error')
         raise NotSupportedException()
 
     @dbus.service.signal(DBUS_PROP_IFACE, signature='sa{sv}as')
