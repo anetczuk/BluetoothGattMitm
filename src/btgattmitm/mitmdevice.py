@@ -23,6 +23,8 @@
 #
 
 import logging
+from time import sleep
+from threading import Thread
 
 from btgattmitm.servicemanager import ServiceManager
 from btgattmitm.servicemock import ServiceMock
@@ -30,6 +32,37 @@ from btgattmitm.servicemock import ServiceMock
 
 
 _LOGGER = logging.getLogger(__name__)
+
+
+
+class NotificationHandler(Thread):
+    def __init__(self, connector):
+        Thread.__init__(self)
+        self.connector = connector
+        self.daemon = True
+        self.execute = True
+        
+    def stop(self):
+        _LOGGER.info("Stopping notify handler")
+        self._stopLoop()
+        self.join()
+        
+    def run(self):
+        try:
+            _LOGGER.info("Starting notify handler")
+            self.execute = True
+            while self.execute:
+                try:
+                    self.connector.processNotifications()
+                except:
+                    _LOGGER.exception("Exception occured")
+                    self._stopLoop()
+                sleep(0.001)                      ## prevents starving other thread
+        finally:
+            _LOGGER.info("Notification handler run loop stopped")
+
+    def _stopLoop(self):
+        self.execute = False
 
 
 
@@ -43,6 +76,7 @@ class MITMDevice():
         MITMDevice
         '''
         self.manager = ServiceManager()
+        self._notificationHandler = None
         self.servceList = []
     
 #     def __del__(self):
@@ -60,16 +94,22 @@ class MITMDevice():
             return
                     
         for s in serviceList:
-            service = ServiceMock( s, bus, serviceIndex )
+            service = ServiceMock( s, bus, serviceIndex, connector )
             self.manager.register_service(service)
             self.servceList.append( service )
             serviceIndex += 1
+        
+        if self._notificationHandler != None:
+            self._notificationHandler.stop()
+        self._notificationHandler = NotificationHandler(connector)
+        self._notificationHandler.start()
         
         self.manager.run()
     
     def stop(self):
         _LOGGER.debug("Stopping MITM")
         self.servceList = []
-        if self.manager != None:
-            self.manager.stop()
+        if self._notificationHandler != None:
+            self._notificationHandler.stop()
+        self.manager.stop()
     
