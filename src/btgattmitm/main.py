@@ -57,27 +57,30 @@ def configureLogger(logFile):
         #### for Python 3.3
         logging.basicConfig( format = loggerFormat,
                              datefmt = loggerDate, 
-                             level = logging.DEBUG,
+                             level = logging.NOTSET,
                              handlers = [ streamHandler, fileHandler ]
                              )
     else:
         #### for Python 2
         rootLogger = logging.getLogger()
-        rootLogger.setLevel( logging.DEBUG )
+        rootLogger.setLevel( logging.NOTSET )
         
         logFormatter = logging.Formatter( loggerFormat, loggerDate )
         
-        streamHandler.setLevel( logging.DEBUG )
+        streamHandler.setLevel( logging.NOTSET )
         streamHandler.setFormatter( logFormatter )
         rootLogger.addHandler( streamHandler )
         
-        fileHandler.setLevel( logging.DEBUG )
+        fileHandler.setLevel( logging.NOTSET )
         fileHandler.setFormatter( logFormatter )
         rootLogger.addHandler( fileHandler )
 
 
 def startMITM(btServiceAddress):
 #     with Connector(btServiceAddress) as connection:
+
+    connection = None
+    device = None
     try:
         connection = Connector(btServiceAddress)
         device = MITMDevice()
