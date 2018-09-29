@@ -6,11 +6,9 @@
 
 import dbus.service
 
-from constants import DBUS_PROP_IFACE
-from exception import InvalidArgsException
+from .constants import DBUS_PROP_IFACE, LE_ADVERTISEMENT_IFACE
+from .exception import InvalidArgsException
 
-
-LE_ADVERTISEMENT_IFACE = 'org.bluez.LEAdvertisement1'
 
 
 class Advertisement(dbus.service.Object):

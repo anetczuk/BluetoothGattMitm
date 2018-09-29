@@ -26,8 +26,8 @@ import logging
 from time import sleep
 from threading import Thread
 
-from btgattmitm.servicemanager import ServiceManager
-from btgattmitm.servicemock import ServiceMock
+from .servicemanager import ServiceManager
+from .servicemock import ServiceMock
 
 
 

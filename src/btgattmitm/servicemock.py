@@ -25,15 +25,12 @@
 import struct
 import logging
 
-from btgattmitm.servicebase import ServiceBase, CharacteristicBase
+from .servicebase import ServiceBase, CharacteristicBase
+from .constants import GATT_CHRC_IFACE
 
 
 
 _LOGGER = logging.getLogger(__name__)
-
-
-
-GATT_CHRC_IFACE =    'org.bluez.GattCharacteristic1'
 
 
 

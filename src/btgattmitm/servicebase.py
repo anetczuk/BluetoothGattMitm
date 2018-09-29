@@ -8,20 +8,13 @@ import logging
 
 import dbus.service
 
-from exception import InvalidArgsException, NotSupportedException
+from .constants import DBUS_OM_IFACE, DBUS_PROP_IFACE
+from .constants import GATT_SERVICE_IFACE, GATT_CHRC_IFACE
+from .exception import InvalidArgsException, NotSupportedException
 
 
 
 _LOGGER = logging.getLogger(__name__)
-
-
-
-DBUS_OM_IFACE =      'org.freedesktop.DBus.ObjectManager'
-DBUS_PROP_IFACE =    'org.freedesktop.DBus.Properties'
-
-GATT_SERVICE_IFACE = 'org.bluez.GattService1'
-GATT_CHRC_IFACE =    'org.bluez.GattCharacteristic1'
-GATT_DESC_IFACE =    'org.bluez.GattDescriptor1'
 
 
 
