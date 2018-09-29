@@ -1,6 +1,6 @@
 ## Bluetooth GATT Man In The Middle
 
-This is console application allowing listening and intercepting Bluetooth GATT 
+This is console application allowing listening and intercepting Bluetooth GATT/LE 
 protocol of certain service. Typical use case is listening messages between some 
 Bluetooth device and client application when communication protocol is unknown.
 
