@@ -168,7 +168,7 @@ class CharacteristicMock(CharacteristicBase):
     
     def notificationCallback(self, value):
         value = self._convertData(value)
-        _LOGGER.debug('Notification to client on %s: %s %s', self.chUuid, repr(value))
+        _LOGGER.debug('Notification to client on %s: %s', self.chUuid, repr(value))
         self.sendNotification( value )
     
     def sendNotification(self, value):
