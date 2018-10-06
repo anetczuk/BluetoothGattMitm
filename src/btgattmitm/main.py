@@ -76,15 +76,13 @@ def configureLogger(logFile):
         rootLogger.addHandler( fileHandler )
 
 
-def startMITM(btServiceAddress):
-#     with Connector(btServiceAddress) as connection:
-
+def startMITM(btServiceAddress, listenMode ):
     connection = None
     device = None
     try:
         connection = Connector(btServiceAddress)
         device = MITMDevice()
-        device.start( connection )
+        device.start( connection, listenMode )
     finally:
         if device != None:
             device.stop()
@@ -108,6 +106,7 @@ parser.add_argument('--pfile', action='store', default=None, help='Profile the c
 # parser.add_argument('--mode', action='store', required=True, choices=["BF", "POLY", "COMMON"], help='Mode' )
 # parser.add_argument('--file', action='store', required=True, help='File with data' )
 parser.add_argument('--connect', action='store', required=True, help='BT address to connect to' )
+parser.add_argument('--listen', action='store_const', const=True, default=False, help='Automatically subscribe for all notifications from service' )
  
 
 args = parser.parse_args()
@@ -140,7 +139,7 @@ try:
         profiler.enable()
 
         
-    exitCode = startMITM( args.connect )
+    exitCode = startMITM( args.connect, args.listen )
 
 
 # except BluetoothError as e:

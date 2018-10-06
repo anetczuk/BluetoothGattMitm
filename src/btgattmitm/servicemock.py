@@ -34,12 +34,16 @@ _LOGGER = logging.getLogger(__name__)
 
 
 
+def to_hex_string(data):
+    return " ".join("0x{:02X}".format(x) for x in data)
+
+
 class ServiceMock(ServiceBase):
     '''
     classdocs
     '''
 
-    def __init__(self, btService, bus, index, connector):
+    def __init__(self, btService, bus, index, connector, listenMode):
         '''
         Service
         '''
@@ -50,17 +54,17 @@ class ServiceMock(ServiceBase):
         
         ServiceBase.__init__(self, bus, index, serviceUuid, True)
         
-        self._mock_characteristics(btService, bus, connector)
+        self._mock_characteristics(btService, bus, connector, listenMode)
     
     def __del__(self):
         pass
 
-    def _mock_characteristics(self, btService, bus, connector):
+    def _mock_characteristics(self, btService, bus, connector, listenMode):
         charsList = btService.getCharacteristics()
         charIndex = 0
         for btCh in charsList:
             ##_LOGGER.debug("Char: %s h:%i p:%s", btCh, btCh.getHandle(), btCh.propertiesToString())
-            char = CharacteristicMock(btCh, bus, charIndex, self, connector)
+            char = CharacteristicMock(btCh, bus, charIndex, self, connector, listenMode)
             self.add_characteristic( char )
             charIndex += 1
     
@@ -91,7 +95,7 @@ class CharacteristicMock(CharacteristicBase):
                  }
 
 
-    def __init__(self, btCharacteristic, bus, index, service, connector):
+    def __init__(self, btCharacteristic, bus, index, service, connector, listenMode):
         '''
         Characteristic
         '''
@@ -101,13 +105,24 @@ class CharacteristicMock(CharacteristicBase):
         btUuid = btCharacteristic.uuid
         self.chUuid = str(btUuid)
         
-        _LOGGER.debug("Creating characteristic: %s[%s]", self.chUuid, btUuid.getCommonName())
+        _LOGGER.debug("Creating characteristic: %s[%s] %s", self.chUuid, btUuid.getCommonName(), "0x{:02X}".format(self.cHandler))
         
         flags = self._getFlags( btCharacteristic )
         CharacteristicBase.__init__(self, bus, index, self.chUuid, flags, service)
+        
+        ## subscribe for notifications
+        if listenMode:
+            ncount = flags.count( "notify" ) + flags.count( "indicate" )
+            if ncount>0:
+                _LOGGER.debug("Subscribing for %s", self.chUuid)
+                connector.subscribeForNotification( self.cHandler, self._handle_notification )
     
     def __del__(self):
         pass
+
+    def _handle_notification(self, data):
+        data = bytearray(data)
+        _LOGGER.debug("Received data: [%s]", to_hex_string(data) )
 
     def _getFlags(self, btCharacteristic):
         propsMask = btCharacteristic.properties
@@ -146,11 +161,11 @@ class CharacteristicMock(CharacteristicBase):
     def readValueHandler(self):
         data = self.connector.readCharacteristic( self.cHandler )
         data = self._convertData(data)            
-        _LOGGER.debug('Client read request on %s: %s', self.chUuid, repr(data) )
+        _LOGGER.debug('Client read request on %s: %s %s', self.chUuid, repr(data), to_hex_string(data) )
         return data
         
     def writeValueHandler(self, value):
-        _LOGGER.debug('Client write request on %s: %s', self.chUuid, repr(value) )
+        _LOGGER.debug('Client write request on %s: %s %s', self.chUuid, repr(value), to_hex_string(value) )
         ## repr(unwrapped), [hex(no) for no in unwrapped]
         data = bytes()
         for val in value:
@@ -168,7 +183,7 @@ class CharacteristicMock(CharacteristicBase):
     
     def notificationCallback(self, value):
         value = self._convertData(value)
-        _LOGGER.debug('Notification to client on %s: %s', self.chUuid, repr(value))
+        _LOGGER.debug('Notification to client on %s: %s %s', self.chUuid, repr(value), to_hex_string(value) )
         self.sendNotification( value )
     
     def sendNotification(self, value):

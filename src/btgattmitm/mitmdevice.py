@@ -82,7 +82,7 @@ class MITMDevice():
 #     def __del__(self):
 #         print "destroying", self.__class__.__name__
 
-    def start(self, connector):
+    def start(self, connector, listenMode):
         _LOGGER.debug("Configuring MITM")
         
         serviceIndex = 0
@@ -94,7 +94,7 @@ class MITMDevice():
             return
                     
         for s in serviceList:
-            service = ServiceMock( s, bus, serviceIndex, connector )
+            service = ServiceMock( s, bus, serviceIndex, connector, listenMode )
             self.manager.register_service(service)
             self.servceList.append( service )
             serviceIndex += 1
