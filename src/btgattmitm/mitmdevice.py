@@ -26,8 +26,7 @@ import logging
 from time import sleep
 from threading import Thread
 
-from .servicemanager import ServiceManager
-from .servicemock import ServiceMock
+from .servicemanager import Application
 
 
 
@@ -55,7 +54,7 @@ class NotificationHandler(Thread):
                 try:
                     self.connector.processNotifications()
                 except:
-                    _LOGGER.exception("Exception occured")
+                    _LOGGER.exception("Exception occurred")
                     self._stopLoop()
                 sleep(0.001)                      ## prevents starving other thread
         finally:
@@ -75,30 +74,18 @@ class MITMDevice():
         '''
         MITMDevice
         '''
-        self.manager = ServiceManager()
+        self.manager = Application()
         self._notificationHandler = None
-        self.servceList = []
     
 #     def __del__(self):
 #         print "destroying", self.__class__.__name__
 
     def start(self, connector, listenMode):
         _LOGGER.debug("Configuring MITM")
-        
-        serviceIndex = 0
-        bus = self.manager.bus
          
-        serviceList = connector.get_services()
-        if serviceList == None:
-            _LOGGER.debug("Could not get list of services")
-            return
-                    
-        for s in serviceList:
-            service = ServiceMock( s, bus, serviceIndex, connector, listenMode )
-            self.manager.register_service(service)
-            self.servceList.append( service )
-            serviceIndex += 1
+        self.manager.register_services(connector, listenMode)
         
+        _LOGGER.debug("Starting notification handler")
         if self._notificationHandler != None:
             self._notificationHandler.stop()
         self._notificationHandler = NotificationHandler(connector)
@@ -108,7 +95,6 @@ class MITMDevice():
     
     def stop(self):
         _LOGGER.debug("Stopping MITM")
-        self.servceList = []
         if self._notificationHandler != None:
             self._notificationHandler.stop()
         self.manager.stop()

@@ -6,27 +6,63 @@
 
 import logging
 
-import gobject
+from gi.repository import GObject
+# import gobject as GObject
+import dbus
 import dbus.mainloop.glib
 
 from .advertisement import TestAdvertisement
 from .constants import DBUS_OM_IFACE, DBUS_PROP_IFACE
 from .constants import BLUEZ_SERVICE_NAME, GATT_MANAGER_IFACE, LE_ADVERTISING_MANAGER_IFACE
-
+from .servicemock import ServiceMock
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
 
-class ServiceManager():
+class ApplicationBase(dbus.service.Object):
+    """
+    org.bluez.GattApplication1 interface implementation
+    """
+    def __init__(self, bus):
+        _LOGGER.debug("Initializing ApplicationBase")
+        self.path = '/'
+        self.services = []
+        dbus.service.Object.__init__(self, bus, self.path)
+
+    def get_path(self):
+        return dbus.ObjectPath(self.path)
+
+    def add_service(self, service):
+        self.services.append(service)
+
+    @dbus.service.method(DBUS_OM_IFACE, out_signature='a{oa{sa{sv}}}')
+    def GetManagedObjects(self):
+        response = {}
+        ##_LOGGER.debug("ApplicationBase::GetManagedObjects: %r", self.services)
+
+        for service in self.services:
+            response[service.get_path()] = service.get_properties()
+            chrcs = service.get_characteristics()
+            for chrc in chrcs:
+                response[chrc.get_path()] = chrc.get_properties()
+                descs = chrc.get_descriptors()
+                for desc in descs:
+                    response[desc.get_path()] = desc.get_properties()
+
+        return response
+
+
+
+class Application(ApplicationBase):
     '''
     classdocs
     '''
 
     def __init__(self):
         '''
-        ServiceManager
+        Application
         '''
         self.mainloop = None
         self.bus = None
@@ -36,9 +72,44 @@ class ServiceManager():
         self.adRegistered = False
         
         self._init()
+        
+        super().__init__(self.bus)
 
-    def register_service(self, service):
-        service.register(self.bluez_manager)
+    
+    def register_services(self, connector, listenMode):
+
+        _LOGGER.debug("Getting services")
+        serviceList = connector.get_services()
+        if serviceList == None:
+            _LOGGER.debug("Could not get list of services")
+            return
+                     
+        _LOGGER.debug("Registering services")
+        serviceIndex = -1
+        for s in serviceList:
+            if s.uuid == '00001800-0000-1000-8000-00805f9b34fb':
+                _LOGGER.debug("Skipping service: %s", s.uuid)
+                continue
+            if s.uuid == '00001801-0000-1000-8000-00805f9b34fb':
+                _LOGGER.debug("Skipping service: %s", s.uuid)
+                continue
+            serviceIndex += 1
+            service = ServiceMock( s, self.bus, serviceIndex, connector, listenMode )
+            self.add_service( service )
+    
+        self.mainloop = GObject.MainLoop()
+    
+        self.bluez_manager.RegisterApplication(    self.get_path(), {},
+                                                   reply_handler=self.register_app_cb,
+                                                   error_handler=self.register_app_error_cb)
+    
+    
+    def register_app_cb(self):
+        _LOGGER.info('GATT application registered')
+    
+    def register_app_error_cb(self, error):
+        _LOGGER.error('Failed to register application: ' + str(error))
+        ##mainloop.quit()
     
     def run(self):
         _LOGGER.debug("Starting main loop")
@@ -57,17 +128,16 @@ class ServiceManager():
         _LOGGER.debug("Initializing service manager")
         
         ## required for Python threading to work
-        gobject.threads_init()
+        GObject.threads_init()
         dbus.mainloop.glib.threads_init()
         dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
-        
-        self.bus = dbus.SystemBus()
     
         ## self._initAdvertisement()
         
+        self.bus = dbus.SystemBus()
+        
         self._initGattService()
         
-        self.mainloop = gobject.MainLoop()
 
     def _initAdvertisement(self):
         advertise_adapter = find_advertise_adapter(self.bus)
@@ -125,9 +195,19 @@ def find_gatt_adapter(bus):
     serviceObj = bus.get_object(BLUEZ_SERVICE_NAME, '/')
     remote_om = dbus.Interface(serviceObj, DBUS_OM_IFACE)
     objects = remote_om.GetManagedObjects()
+    return find_object_with_key(objects, GATT_MANAGER_IFACE)
 
-    for o, props in objects.iteritems():
-        if props.has_key(GATT_MANAGER_IFACE):
-            return o
-
+def find_object_with_key(objects, key):
+    ret = None
+    for obj, props in objects.items():
+        pr = props.get(key)
+        if pr != None:
+            _LOGGER.debug('item: %s %s', obj, pr )
+             return obj
+    return ret
+        
+def find_object_with_key_old(objects, key):
+    for obj, props in objects.iteritems():
+        if props.has_key(key):
+            return obj
     return None
