@@ -27,7 +27,7 @@ class ApplicationBase(dbus.service.Object):
     """
     def __init__(self, bus):
         _LOGGER.debug("Initializing ApplicationBase")
-        self.path = '/'
+        self.path = '/xxx'
         self.services = []
         dbus.service.Object.__init__(self, bus, self.path)
 
@@ -198,13 +198,12 @@ def find_gatt_adapter(bus):
     return find_object_with_key(objects, GATT_MANAGER_IFACE)
 
 def find_object_with_key(objects, key):
-    ret = None
     for obj, props in objects.items():
         pr = props.get(key)
         if pr != None:
             _LOGGER.debug('item: %s %s', obj, pr )
-             return obj
-    return ret
+            return obj
+    return None
         
 def find_object_with_key_old(objects, key):
     for obj, props in objects.iteritems():
