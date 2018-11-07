@@ -26,7 +26,7 @@ import logging
 from time import sleep
 from threading import Thread
 
-from .servicemanager import Application
+from .mitmmanager import MitmManager
 
 
 
@@ -73,8 +73,8 @@ class MITMDevice():
     def __init__(self):
         '''
         MITMDevice
-        '''
-        self.manager = Application()
+        '''        
+        self.manager = MitmManager()
         self._notificationHandler = None
     
 #     def __del__(self):
@@ -83,7 +83,7 @@ class MITMDevice():
     def start(self, connector, listenMode):
         _LOGGER.debug("Configuring MITM")
          
-        self.manager.register_services(connector, listenMode)
+        self.manager.prepate(connector, listenMode)
         
         _LOGGER.debug("Starting notification handler")
         if self._notificationHandler != None:

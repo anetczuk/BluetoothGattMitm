@@ -4,10 +4,18 @@
 #        https://github.com/Vudentz/BlueZ/blob/master/test/example-advertisement
 #
 
+import logging
+
 import dbus.service
 
 from .constants import DBUS_PROP_IFACE, LE_ADVERTISEMENT_IFACE
+from .constants import BLUEZ_SERVICE_NAME
+from .constants import LE_ADVERTISING_MANAGER_IFACE
 from .exception import InvalidArgsException
+from .find_adapter import find_advertise_adapter
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 
@@ -26,20 +34,18 @@ class Advertisement(dbus.service.Object):
         dbus.service.Object.__init__(self, bus, self.path)
 
     def get_properties(self):
+        _LOGGER.debug("Getting advertisement properties")
+        
         properties = dict()
         properties['Type'] = self.ad_type
         if self.service_uuids is not None:
-            properties['ServiceUUIDs'] = dbus.Array(self.service_uuids,
-                                                    signature='s')
+            properties['ServiceUUIDs'] = dbus.Array(self.service_uuids, signature='s')
         if self.solicit_uuids is not None:
-            properties['SolicitUUIDs'] = dbus.Array(self.solicit_uuids,
-                                                    signature='s')
+            properties['SolicitUUIDs'] = dbus.Array(self.solicit_uuids, signature='s')
         if self.manufacturer_data is not None:
-            properties['ManufacturerData'] = dbus.Dictionary(
-                self.manufacturer_data, signature='qay')
+            properties['ManufacturerData'] = dbus.Dictionary( self.manufacturer_data, signature='qay' )
         if self.service_data is not None:
-            properties['ServiceData'] = dbus.Dictionary(self.service_data,
-                                                        signature='say')
+            properties['ServiceData'] = dbus.Dictionary(self.service_data, signature='say')
         if self.include_tx_power is not None:
             properties['IncludeTxPower'] = dbus.Boolean(self.include_tx_power)
         return {LE_ADVERTISEMENT_IFACE: properties}
@@ -67,25 +73,21 @@ class Advertisement(dbus.service.Object):
             self.service_data = dict()
         self.service_data[uuid] = data
 
-    @dbus.service.method(DBUS_PROP_IFACE,
-                         in_signature='s',
-                         out_signature='a{sv}')
+    @dbus.service.method(DBUS_PROP_IFACE, in_signature='s', out_signature='a{sv}')
     def GetAll(self, interface):
-#         print( 'GetAll' )
+        _LOGGER.debug("Getting advertisement all")
         if interface != LE_ADVERTISEMENT_IFACE:
             raise InvalidArgsException()
 #         print( 'returning props' )
         return self.get_properties()[LE_ADVERTISEMENT_IFACE]
 
-    @dbus.service.method(LE_ADVERTISEMENT_IFACE,
-                         in_signature='',
-                         out_signature='')
+    @dbus.service.method(LE_ADVERTISEMENT_IFACE, in_signature='', out_signature='')
     def Release(self):
-        print( '%s: Released!' % self.path )
+        _LOGGER.debug("Advertisement released")
 
 
 
-class TestAdvertisement(Advertisement):
+class AdvertisementManager(Advertisement):
 
     def __init__(self, bus, index):
         Advertisement.__init__(self, bus, index, 'peripheral')
@@ -94,5 +96,42 @@ class TestAdvertisement(Advertisement):
         self.add_manufacturer_data(0xffff, [0x00, 0x01, 0x02, 0x03, 0x04])
         self.add_service_data('9999', [0x00, 0x01, 0x02, 0x03, 0x04])
         self.include_tx_power = True
+        self.adRegistered = False
+        
+        self.adManager = None
+        self._initManager(bus)
+        
+    def _initManager(self, bus):
+        advertise_adapter = find_advertise_adapter(bus)
+        if not advertise_adapter:
+            _LOGGER.error('LEAdvertisingManager1 interface not found')
+            return
+        
+        advertiseObj = self.bus.get_object(BLUEZ_SERVICE_NAME, advertise_adapter)
+        adapter_props = dbus.Interface(advertiseObj, DBUS_PROP_IFACE);
+        adapter_props.Set("org.bluez.Adapter1", "Powered", dbus.Boolean(1))
+        self.adManager = dbus.Interface(advertiseObj, LE_ADVERTISING_MANAGER_IFACE)
 
+    def register(self):
+        if self.adManager == None:
+            return
+        adPath = self.get_path()
+        self.adManager.RegisterAdvertisement( adPath, {},
+                                              reply_handler=self._register_ad_cb,
+                                              error_handler=self._register_ad_error_cb)
 
+    def unregister(self):
+        if self.adRegistered == False:
+            return
+        _LOGGER.error('Unregistering advertisement')
+        adPath = self.get_path()
+        self.adManager.UnregisterAdvertisement( adPath )
+
+    def _register_ad_cb(self):
+        _LOGGER.info( 'Advertisement registered' )
+        self.adRegistered = True
+
+    def _register_ad_error_cb(self, error):
+        _LOGGER.error( 'Failed to register advertisement: %s', str(error) )
+        self.adRegistered = False
+    

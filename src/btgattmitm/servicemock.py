@@ -69,10 +69,10 @@ class ServiceMock(ServiceBase):
             charIndex += 1
     
     
-    def register(self, bluezmManager):
-        bluezmManager.RegisterService( self.get_path(), {},
-                                       reply_handler=self._register_service_cb,
-                                       error_handler=self._register_service_error_cb )
+    def register(self, gattManager):
+        gattManager.RegisterService( self.get_path(), {},
+                                     reply_handler=self._register_service_cb,
+                                     error_handler=self._register_service_error_cb )
      
     def _register_service_cb(self):
         _LOGGER.info('GATT service registered: uuid:%s', self.uuid)
