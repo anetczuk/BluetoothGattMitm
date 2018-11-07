@@ -69,6 +69,19 @@ class ServiceMock(ServiceBase):
             charIndex += 1
     
     
+    def register(self, bluezmManager):
+        bluezmManager.RegisterService( self.get_path(), {},
+                                       reply_handler=self._register_service_cb,
+                                       error_handler=self._register_service_error_cb )
+     
+    def _register_service_cb(self):
+        _LOGGER.info('GATT service registered: uuid:%s', self.uuid)
+#         _LOGGER.info('GATT service registered: %s uuid:%s', self.__class__.__name__, self.uuid)
+         
+    def _register_service_error_cb(self, error):
+        _LOGGER.error('Failed to register service: %s uuid:%s', str(error), self.uuid )
+        
+    
     
 class CharacteristicMock(CharacteristicBase):
     '''
@@ -171,6 +184,8 @@ class CharacteristicMock(CharacteristicBase):
         for val in value:
             data += struct.pack('B', val)
         self.connector.writeCharacteristic( self.cHandler, data )
+        ##ret = self.connector.writeCharacteristic( self.cHandler, data )
+        ##_LOGGER.debug("response: %r", ret)
         #TODO: implement write without return
         
     def startNotifyHandler(self):

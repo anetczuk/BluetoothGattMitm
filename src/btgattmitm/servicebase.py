@@ -87,19 +87,6 @@ class ServiceBase(dbus.service.Object):
 #         print( "returning objects:", response )
         return response
 
-#     def register(self, bluezmManager):
-#         _LOGGER.debug('manager %r %s', bluezmManager, dbus.version)
-#         bluezmManager.RegisterService( self.get_path(), {},
-#                                        reply_handler=self._register_service_cb,
-#                                        error_handler=self._register_service_error_cb )
-#     
-#     def _register_service_cb(self):
-#         _LOGGER.info('GATT service registered: uuid:%s', self.uuid)
-# #         _LOGGER.info('GATT service registered: %s uuid:%s', self.__class__.__name__, self.uuid)
-#         
-#     def _register_service_error_cb(self, error):
-#         _LOGGER.error('Failed to register service: %s uuid:%s', str(error), self.uuid )
-
 
 class CharacteristicBase(dbus.service.Object):
     def __init__(self, bus, index, uuid, flags, service):
@@ -179,14 +166,17 @@ class CharacteristicBase(dbus.service.Object):
 
     def _wrap(self, value):
         ##return dbus.Array( value, dbus.Signature('ay') )
-        if isinstance(value, list) or isinstance(value, bytearray):
+        if isinstance(value, list) or isinstance(value, bytearray) or isinstance(value, bytes):
             vallist = []
             for x in value:
                 vallist = vallist + self._wrap(x)
             return dbus.Array( vallist )
+        if isinstance(value, bytes):
+            ##return dbus.Array( [dbus.Byte( int(value) )] )
+            _LOGGER.debug("bytes len: %i", len(value))
         if isinstance(value, int):
             return dbus.Array( [dbus.Byte( int(value) )] )
-        _LOGGER.debug('Unsupported type: %s %s', repr(value), type(value))
+        _LOGGER.error('Unsupported type: %s %s', repr(value), type(value))
         return None
     
     def _unwrap(self, value):
