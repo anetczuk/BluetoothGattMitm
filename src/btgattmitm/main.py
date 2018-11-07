@@ -38,7 +38,7 @@ import logging.handlers
 import cProfile
 
 from btgattmitm.connector import Connector
-from btgattmitm.mitmdevice import MITMDevice
+from btgattmitm.mitmmanager import MitmManager
 
 
 
@@ -81,7 +81,7 @@ def startMITM(btServiceAddress, listenMode ):
     device = None
     try:
         connection = Connector(btServiceAddress)
-        device = MITMDevice()
+        device = MitmManager()
         device.start( connection, listenMode )
     finally:
         if device != None:

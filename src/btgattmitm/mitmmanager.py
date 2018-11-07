@@ -14,6 +14,7 @@ import dbus.mainloop.glib
 
 from .advertisement import AdvertisementManager
 from .gattserver import GattServer
+from .connector import NotificationHandler
 
 
 
@@ -42,10 +43,39 @@ class MitmManager():
 
         self.bus             = dbus.SystemBus()
         
+        self._notificationHandler = None
+        
         self.leAdvertisement = AdvertisementManager(self.bus, 0)
         self.gattServer      = GattServer(self.bus)
+
+    def start(self, connector, listenMode):
+        _LOGGER.debug("Configuring MITM")
+         
+        self._prepate(connector, listenMode)
+        
+        _LOGGER.debug("Starting notification handler")
+        if self._notificationHandler != None:
+            self._notificationHandler.stop()
+        self._notificationHandler = NotificationHandler(connector)
+        self._notificationHandler.start()
+        
+        _LOGGER.debug("Starting main loop")
+        self.mainloop.run()
     
-    def prepate(self, connector, listenMode):
+    def stop(self):
+        _LOGGER.debug("Stopping MITM")
+        if self._notificationHandler != None:
+            self._notificationHandler.stop()
+
+        if self.leAdvertisement != None:
+            self.leAdvertisement.unregister()
+            
+        if self.gattServer != None:
+            self.gattServer.unregister()
+            
+        self.mainloop = None
+        
+    def _prepate(self, connector, listenMode):
         if self.gattServer != None:
             self.gattServer.prepare(connector, listenMode)
         
@@ -57,17 +87,3 @@ class MitmManager():
         
         if self.gattServer != None:
             self.gattServer.register()
-
-    def run(self):
-        _LOGGER.debug("Starting main loop")
-        self.mainloop.run()
-
-    def stop(self):
-        _LOGGER.debug( "Stopping main loop" )
-        if self.leAdvertisement != None:
-            self.leAdvertisement.unregister()
-            
-        if self.gattServer != None:
-            self.gattServer.unregister()
-            
-        self.mainloop = None

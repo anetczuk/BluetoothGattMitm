@@ -25,6 +25,9 @@
 import struct
 import logging
 
+from time import sleep
+from threading import Thread
+
 from bluepy import btle
 
 from .synchronized import synchronized
@@ -174,3 +177,34 @@ class Connector(btle.DefaultDelegate):
         if self._conn != None:
             self._conn.waitForNotifications(0.1)
         
+
+
+class NotificationHandler(Thread):
+    def __init__(self, connector):
+        Thread.__init__(self)
+        self.connector = connector
+        self.daemon = True
+        self.execute = True
+        
+    def stop(self):
+        _LOGGER.info("Stopping notify handler")
+        self._stopLoop()
+        self.join()
+        
+    def run(self):
+        try:
+            _LOGGER.info("Starting notify handler")
+            self.execute = True
+            while self.execute:
+                try:
+                    self.connector.processNotifications()
+                except:
+                    _LOGGER.exception("Exception occurred")
+                    self._stopLoop()
+                sleep(0.001)                      ## prevents starving other thread
+        finally:
+            _LOGGER.info("Notification handler run loop stopped")
+
+    def _stopLoop(self):
+        self.execute = False
+    
