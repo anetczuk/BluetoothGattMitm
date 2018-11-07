@@ -30,7 +30,9 @@ class Advertisement(dbus.service.Object):
         self.manufacturer_data = None
         self.solicit_uuids = None
         self.service_data = None
+        self.local_name = None
         self.include_tx_power = None
+        self.data = None
         dbus.service.Object.__init__(self, bus, self.path)
 
     def get_properties(self):
@@ -46,8 +48,12 @@ class Advertisement(dbus.service.Object):
             properties['ManufacturerData'] = dbus.Dictionary( self.manufacturer_data, signature='qay' )
         if self.service_data is not None:
             properties['ServiceData'] = dbus.Dictionary(self.service_data, signature='say')
+        if self.local_name is not None:
+            properties['LocalName'] = dbus.String(self.local_name)
         if self.include_tx_power is not None:
             properties['IncludeTxPower'] = dbus.Boolean(self.include_tx_power)
+        if self.data is not None:
+            properties['Data'] = dbus.Dictionary(self.data, signature='yv')
         return {LE_ADVERTISEMENT_IFACE: properties}
 
     def get_path(self):
@@ -73,13 +79,25 @@ class Advertisement(dbus.service.Object):
             self.service_data = dict()
         self.service_data[uuid] = data
 
+    def add_local_name(self, name):
+        if not self.local_name:
+            self.local_name = ""
+        self.local_name = dbus.String(name)
+        
+    def add_data(self, ad_type, data):
+        if not self.data:
+            self.data = dbus.Dictionary({}, signature='yv')
+        self.data[ad_type] = dbus.Array(data, signature='y')
+
     @dbus.service.method(DBUS_PROP_IFACE, in_signature='s', out_signature='a{sv}')
     def GetAll(self, interface):
         _LOGGER.debug("Getting advertisement all")
         if interface != LE_ADVERTISEMENT_IFACE:
             raise InvalidArgsException()
 #         print( 'returning props' )
-        return self.get_properties()[LE_ADVERTISEMENT_IFACE]
+        props = self.get_properties()
+        _LOGGER.debug("Getting properties: %r", props)
+        return props[LE_ADVERTISEMENT_IFACE]
 
     @dbus.service.method(LE_ADVERTISEMENT_IFACE, in_signature='', out_signature='')
     def Release(self):
@@ -95,9 +113,11 @@ class AdvertisementManager(Advertisement):
         self.add_service_uuid('180F')
         self.add_manufacturer_data(0xffff, [0x00, 0x01, 0x02, 0x03, 0x04])
         self.add_service_data('9999', [0x00, 0x01, 0x02, 0x03, 0x04])
+        self.add_local_name('TestAdvertisementX')
         self.include_tx_power = True
-        self.adRegistered = False
+        self.add_data(0x26, [0x01, 0x01, 0x00])
         
+        self.adRegistered = False
         self.adManager = None
         self._initManager(bus)
         
