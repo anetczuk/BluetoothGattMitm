@@ -85,7 +85,7 @@ class GattServer(ApplicationBase):
         serviceList = connector.get_services()
         if serviceList == None:
             _LOGGER.debug("Could not get list of services")
-            return
+            return False
                      
         _LOGGER.debug("Registering services")
         serviceIndex = -1
@@ -99,6 +99,7 @@ class GattServer(ApplicationBase):
             serviceIndex += 1
             service = ServiceMock( s, self.bus, serviceIndex, connector, listenMode )
             self.add_service( service )
+        return True
             
     def register(self):
         if self.gattManager == None:

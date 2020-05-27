@@ -43,6 +43,8 @@ class MitmManager():
 
         self.bus             = dbus.SystemBus()
         
+        self.leAdvertisement      = None
+        self.gattServer           = None
         self._notificationHandler = None
         
         self.leAdvertisement = AdvertisementManager(self.bus, 0)
@@ -51,7 +53,9 @@ class MitmManager():
     def start(self, connector, listenMode):
         _LOGGER.debug("Configuring MITM")
          
-        self._prepate(connector, listenMode)
+        valid = self._prepate(connector, listenMode)
+        if valid is False:
+            return
         
         _LOGGER.debug("Starting notification handler")
         if self._notificationHandler != None:
@@ -77,7 +81,9 @@ class MitmManager():
         
     def _prepate(self, connector, listenMode):
         if self.gattServer != None:
-            self.gattServer.prepare(connector, listenMode)
+            valid = self.gattServer.prepare(connector, listenMode)
+            if valid is False:
+                return False
         
         self.mainloop = GObject.MainLoop()
         
@@ -87,3 +93,4 @@ class MitmManager():
         
         if self.gattServer != None:
             self.gattServer.register()
+        return True
