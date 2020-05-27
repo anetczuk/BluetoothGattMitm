@@ -27,9 +27,17 @@ reading data from Bluetooth services. Two among them:
 - GATTBrowser
 
 
-### Troubleshootings:
-- when application is started then it is impossible to discover the NITM device --
+## Required libraries
+- Python 2
+- Linux *python-dbus* package (1.2.6-1)
+- *bluepy* (1.3.0)
+
+
+### Issues:
+- when application is started then it is impossible to discover the MITM device --
 workaround is to directly insert address of MITM service
+- messages like *Unable to set arguments (dbus.ObjectPath('/org/bluez/example/service0'), {}) according to signature None: <type 'exceptions.ValueError'>: Unable to guess signature from an empty dict
+* mean your bluepy library is *old* compared to DBus client
 
 
 ### Use example of:
