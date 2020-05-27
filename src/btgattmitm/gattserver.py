@@ -105,7 +105,8 @@ class GattServer(ApplicationBase):
         if self.gattManager == None:
             return
         ## register services
-        self._register_services_old()
+        #self._register_services_old()
+        self._register_services_new()
             
     def unregister(self):
         ## do nothing
