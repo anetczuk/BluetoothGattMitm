@@ -8,6 +8,8 @@ import dbus.service
 import array
 import gobject
 
+import pprint
+
 from random import randint
 
 mainloop = None
@@ -121,8 +123,16 @@ class Advertisement(dbus.service.Object):
         print 'GetAll'
         if interface != LE_ADVERTISEMENT_IFACE:
             raise InvalidArgsException()
+        
+        allProps = self.get_properties()
         print 'returning props'
-        return self.get_properties()[LE_ADVERTISEMENT_IFACE]
+        print pprint.pformat( allProps )
+        
+        leProps = allProps[LE_ADVERTISEMENT_IFACE]
+        print 'returning props'
+        print pprint.pformat( leProps )
+        
+        return leProps
 
     @dbus.service.method(LE_ADVERTISEMENT_IFACE,
                          in_signature='',

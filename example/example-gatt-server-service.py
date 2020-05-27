@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 import dbus
 import dbus.exceptions
@@ -7,6 +7,8 @@ import dbus.service
 
 import array
 import gobject
+
+import pprint
 
 from random import randint
 
@@ -49,7 +51,7 @@ class Service(dbus.service.Object):
         dbus.service.Object.__init__(self, bus, self.path)
 
     def get_properties(self):
-        return {
+        allProps = {
                 GATT_SERVICE_IFACE: {
                         'UUID': self.uuid,
                         'Primary': self.primary,
@@ -58,9 +60,13 @@ class Service(dbus.service.Object):
                                 signature='o')
                 }
         }
+        print('returning all props: ', pprint.pformat( allProps ))
+        return allProps
 
     def get_path(self):
-        return dbus.ObjectPath(self.path)
+        path = dbus.ObjectPath(self.path)
+        print( 'returning path: %r' % ( str( path ) ) )
+        return path 
 
     def add_characteristic(self, characteristic):
         self.characteristics.append(characteristic)
@@ -80,14 +86,13 @@ class Service(dbus.service.Object):
     def GetAll(self, interface):
         if interface != GATT_SERVICE_IFACE:
             raise InvalidArgsException()
-
-        return self.get_properties[GATT_SERVICE_IFACE]
+        allProps = self.get_properties()
+        return allProps[GATT_SERVICE_IFACE]
 
     @dbus.service.method(DBUS_OM_IFACE, out_signature='a{oa{sa{sv}}}')
     def GetManagedObjects(self):
+        print('call to GetManagedObjects')
         response = {}
-        print('GetManagedObjects')
-
         response[self.get_path()] = self.get_properties()
         chrcs = self.get_characteristics()
         for chrc in chrcs:
