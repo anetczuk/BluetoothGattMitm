@@ -6,9 +6,9 @@
 
 import logging
 
-# from gi.repository import GObject
+from gi.repository import GObject
 # from gobject import gobject as GObject
-import gobject as GObject
+# import gobject as GObject
 # import dbus
 import dbus.mainloop.glib
 
