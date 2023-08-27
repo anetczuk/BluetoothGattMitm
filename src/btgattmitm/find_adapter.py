@@ -36,7 +36,7 @@ def find_object_with_key(objects, key):
     return None
         
 def find_object_with_key_old(objects, key):
-    for obj, props in objects.iteritems():
-        if props.has_key(key):
+    for obj, props in objects.items():
+        if key in props:
             return obj
     return None
