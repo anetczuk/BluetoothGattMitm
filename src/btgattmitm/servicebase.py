@@ -291,7 +291,7 @@ class CharacteristicBase(dbus.service.Object):
 #             print('Already notifying, nothing to do')
 #             return
 # 
-#         print 'Starting notifying', self.__class__.__name__
+#         print('Starting notifying', self.__class__.__name__)
 #         self.notifying = True
 #         self.notify()
 # 
@@ -300,7 +300,7 @@ class CharacteristicBase(dbus.service.Object):
 #             print('Not notifying, nothing to do')
 #             return
 # 
-#         print 'Stopping notifying', self.__class__.__name__
+#         print('Stopping notifying', self.__class__.__name__)
 #         self.notifying = False
 #         
 #         
@@ -342,7 +342,7 @@ class CharacteristicBase(dbus.service.Object):
 #             return
 #         wrapped = self._wrap(self.value_lvl)
 #         message = { 'Value': wrapped }
-#         print self.__class__.__name__, 'notify:', self.value_lvl
+#         print(self.__class__.__name__, 'notify:', self.value_lvl)
 #         self.PropertiesChanged(GATT_CHRC_IFACE, message, [])
 # 
 #     def readValueHandler(self):
@@ -356,7 +356,7 @@ class CharacteristicBase(dbus.service.Object):
 #             print('Already notifying, nothing to do')
 #             return
 # 
-#         print 'Starting notifying', self.__class__.__name__
+#         print('Starting notifying', self.__class__.__name__)
 #         self.notifying = True
 # 
 #     def stopNotifyHandler(self):
@@ -364,7 +364,7 @@ class CharacteristicBase(dbus.service.Object):
 #             print('Not notifying, nothing to do')
 #             return
 # 
-#         print 'Stopping notifying', self.__class__.__name__
+#         print('Stopping notifying', self.__class__.__name__)
 #         self.notifying = False
 # 
 # 
@@ -400,7 +400,7 @@ class CharacteristicBase(dbus.service.Object):
 # 
 #     @dbus.service.method(GATT_DESC_IFACE, out_signature='ay')
 #     def ReadValue(self):
-#         print ('Default ReadValue called, returning error')
+#         print('Default ReadValue called, returning error')
 #         raise NotSupportedException()
 # 
 #     @dbus.service.method(GATT_DESC_IFACE, in_signature='ay')

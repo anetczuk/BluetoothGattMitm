@@ -23,12 +23,12 @@ application to created MITM service.
 
 There are several Android applications allowing writing custom messages and 
 reading data from Bluetooth services. Two among them:
+- GATTBrowser by Renesas
 - BLE Tool
-- GATTBrowser
 
 
 ## Required libraries
-- Python 2
+- Python 3
 - Linux *python-dbus* package (1.2.6-1)
 - *bluepy* (1.3.0)
 
@@ -55,4 +55,5 @@ workaround is to directly insert address of MITM service
 - https://github.com/Vudentz/BlueZ
 - https://dbus.freedesktop.org/doc/dbus-python/index.html
 - https://ianharvey.github.io/bluepy-doc/index.html
-
+- https://github.com/Vudentz/BlueZ/blob/master/test/example-gatt-server
+- https://github.com/Vudentz/BlueZ/blob/master/test/example-advertisement

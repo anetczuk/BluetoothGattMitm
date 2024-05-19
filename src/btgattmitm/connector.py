@@ -78,12 +78,13 @@ class Connector(btle.DefaultDelegate):
         self.callbacks = CallbackContainer()
     
 #     def __del__(self):
-#         print "destroying", self.__class__.__name__
+#         print("destroying", self.__class__.__name__)
     
     def get_services(self):
         peripheral = self._connect()
         if peripheral == None:
             return None
+        _LOGGER.debug("getting services")
         return peripheral.getServices()
     
     def print_services(self):
@@ -109,12 +110,18 @@ class Connector(btle.DefaultDelegate):
     def _connect(self):
         if self._conn != None:
             return self._conn
-        
+
+        # addrType = btle.ADDR_TYPE_PUBLIC
+        addrType = btle.ADDR_TYPE_RANDOM
+        _LOGGER.debug(f"connecting to device {self.address} type: {addrType}")
         for _ in range(0,2):
             try:
                 conn = btle.Peripheral()
                 conn.withDelegate(self)
-                conn.connect(self.address, addrType='random')
+                conn.connect(self.address, addrType=addrType)
+                # conn.connect(self.address, addrType=btle.ADDR_TYPE_RANDOM)
+                # conn.connect(self.address, addrType='random')
+                _LOGGER.debug("connected")
                 self._conn = conn
                 return self._conn
             except btle.BTLEException as ex:

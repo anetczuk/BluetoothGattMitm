@@ -1,5 +1,4 @@
-#!/usr/bin/python2
-#
+#!/usr/bin/env python3
 #
 # MIT License
 # 
@@ -143,7 +142,7 @@ try:
 
 
 # except BluetoothError as e:
-#     print "Error: ", e, " check if BT is powered on"
+#     print("Error: ", e, " check if BT is powered on")
 
 except:
     _LOGGER.exception("Exception occured")
