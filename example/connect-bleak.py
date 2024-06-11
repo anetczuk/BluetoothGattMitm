@@ -78,16 +78,20 @@ def main():
                 for char_item in item.characteristics:
                     _LOGGER.info(f"    char: {char_item}")
 
-            for item in client_data.characteristics.values():
-                _LOGGER.info(f"char: {item} props: {item.properties}")
-                value = await client.read_gatt_char(item.handle)
-                _LOGGER.info(f"    value: {value}")
+            # for item in client_data.characteristics.values():
+            #     _LOGGER.info(f"char: {item} props: {item.properties}")
+            #     value = await client.read_gatt_char(item.handle)
+            #     _LOGGER.info(f"    value: {value}")
 
             for item in client_data.descriptors.values():
                 _LOGGER.info(f"desc: {item}")
 
             value = await client.read_gatt_char("00002a00-0000-1000-8000-00805f9b34fb")
             _LOGGER.info(f"    value: {value}")
+
+            for handle in range(0, 40):
+                data = client.read_gatt_descriptor(handle)
+                _LOGGER.info(f"handle {handle} descriptor: {data.decode()}")
 
             # for service_item in client.services:
             #     _LOGGER.info(f"service: {service_item}")
