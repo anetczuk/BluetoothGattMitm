@@ -37,7 +37,6 @@ from .exception import InvalidStateError
 _LOGGER = logging.getLogger(__name__)
 
 
-
 class CallbackContainer():
     
     def __init__(self):
@@ -62,7 +61,7 @@ class CallbackContainer():
         return None
             
     
-class Connector(btle.DefaultDelegate):
+class BluepyConnector(btle.DefaultDelegate):
     '''
     classdocs
     '''
@@ -74,7 +73,7 @@ class Connector(btle.DefaultDelegate):
         btle.DefaultDelegate.__init__(self)
         
         self.address = mac
-        self._conn = None
+        self._peripheral = None
         self.callbacks = CallbackContainer()
     
 #     def __del__(self):
@@ -108,8 +107,8 @@ class Connector(btle.DefaultDelegate):
     
     @synchronized
     def _connect(self):
-        if self._conn != None:
-            return self._conn
+        if self._peripheral != None:
+            return self._peripheral
 
         # addrType = btle.ADDR_TYPE_PUBLIC
         addrType = btle.ADDR_TYPE_RANDOM
@@ -122,10 +121,10 @@ class Connector(btle.DefaultDelegate):
                 # conn.connect(self.address, addrType=btle.ADDR_TYPE_RANDOM)
                 # conn.connect(self.address, addrType='random')
                 _LOGGER.debug("connected")
-                self._conn = conn
-                return self._conn
+                self._peripheral = conn
+                return self._peripheral
             except btle.BTLEException as ex:
-                self._conn = None
+                self._peripheral = None
                 _LOGGER.debug("Unable to connect to the device %s, retrying: %s", self.address, ex)
                 
         return None
@@ -133,9 +132,9 @@ class Connector(btle.DefaultDelegate):
     @synchronized    
     def disconnect(self):
         _LOGGER.debug("Disconnecting")
-        if self._conn != None:
-            self._conn.disconnect()
-        self._conn = None
+        if self._peripheral != None:
+            self._peripheral.disconnect()
+        self._peripheral = None
     
     def handleNotification(self, cHandle, data):
         try:
@@ -155,15 +154,15 @@ class Connector(btle.DefaultDelegate):
 
     @synchronized
     def writeCharacteristic(self, handle, val, withResponse=False):
-        if self._conn == None:
+        if self._peripheral == None:
             raise InvalidStateError("not connected")
-        return self._conn.writeCharacteristic(handle, val, withResponse)
+        return self._peripheral.writeCharacteristic(handle, val, withResponse)
     
     @synchronized
     def readCharacteristic(self, handle):
-        if self._conn == None:
+        if self._peripheral == None:
             raise InvalidStateError("not connected")
-        return self._conn.readCharacteristic(handle)
+        return self._peripheral.readCharacteristic(handle)
 
     @synchronized
     def subscribeForNotification(self, handle, callback):
@@ -181,8 +180,8 @@ class Connector(btle.DefaultDelegate):
 
     @synchronized
     def processNotifications(self):
-        if self._conn != None:
-            self._conn.waitForNotifications(0.1)
+        if self._peripheral != None:
+            self._peripheral.waitForNotifications(0.1)
         
 
 

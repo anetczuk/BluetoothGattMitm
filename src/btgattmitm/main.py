@@ -36,7 +36,7 @@ import argparse
 import logging.handlers
 import cProfile
 
-from btgattmitm.connector import Connector
+from btgattmitm.connector import BluepyConnector
 from btgattmitm.mitmmanager import MitmManager
 
 
@@ -79,7 +79,7 @@ def startMITM(btServiceAddress, listenMode ):
     connection = None
     device = None
     try:
-        connection = Connector(btServiceAddress)
+        connection = BluepyConnector(btServiceAddress)
         device = MitmManager()
         device.start( connection, listenMode )
     finally:
