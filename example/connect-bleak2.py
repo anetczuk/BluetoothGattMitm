@@ -24,26 +24,19 @@ async def main(args: argparse.Namespace):
     logger.info("starting scan...")
 
     if args.address:
-        device = await BleakScanner.find_device_by_address(
-            args.address, cb=dict(use_bdaddr=args.macos_use_bdaddr)
-        )
+        device = await BleakScanner.find_device_by_address(args.address, cb=dict(use_bdaddr=args.macos_use_bdaddr))
         if device is None:
             logger.error("could not find device with address '%s'", args.address)
             return
     else:
-        device = await BleakScanner.find_device_by_name(
-            args.name, cb=dict(use_bdaddr=args.macos_use_bdaddr)
-        )
+        device = await BleakScanner.find_device_by_name(args.name, cb=dict(use_bdaddr=args.macos_use_bdaddr))
         if device is None:
             logger.error("could not find device with name '%s'", args.name)
             return
 
     logger.info("connecting to device...")
 
-    async with BleakClient(
-        device,
-        services=args.services,
-    ) as client:
+    async with BleakClient(device, services=args.services) as client:
         logger.info("connected")
 
         for service in client.services:
@@ -62,12 +55,7 @@ async def main(args: argparse.Namespace):
                 if "write-without-response" in char.properties:
                     extra += f", Max write w/o rsp size: {char.max_write_without_response_size}"
 
-                logger.info(
-                    "  [Characteristic] %s (%s)%s",
-                    char,
-                    ",".join(char.properties),
-                    extra,
-                )
+                logger.info("  [Characteristic] %s (%s)%s", char, ",".join(char.properties), extra)
 
                 for descriptor in char.descriptors:
                     try:
@@ -86,44 +74,24 @@ if __name__ == "__main__":
 
     device_group = parser.add_mutually_exclusive_group(required=True)
 
+    device_group.add_argument("--name", metavar="<name>", help="the name of the bluetooth device to connect to")
     device_group.add_argument(
-        "--name",
-        metavar="<name>",
-        help="the name of the bluetooth device to connect to",
-    )
-    device_group.add_argument(
-        "--address",
-        metavar="<address>",
-        help="the address of the bluetooth device to connect to",
+        "--address", metavar="<address>", help="the address of the bluetooth device to connect to"
     )
 
     parser.add_argument(
-        "--macos-use-bdaddr",
-        action="store_true",
-        help="when true use Bluetooth address instead of UUID on macOS",
+        "--macos-use-bdaddr", action="store_true", help="when true use Bluetooth address instead of UUID on macOS"
     )
 
     parser.add_argument(
-        "--services",
-        nargs="+",
-        metavar="<uuid>",
-        help="if provided, only enumerate matching service(s)",
+        "--services", nargs="+", metavar="<uuid>", help="if provided, only enumerate matching service(s)"
     )
 
-    parser.add_argument(
-        "-d",
-        "--debug",
-        action="store_true",
-        help="sets the log level to debug",
-    )
+    parser.add_argument("-d", "--debug", action="store_true", help="sets the log level to debug")
 
     args = parser.parse_args()
 
     log_level = logging.DEBUG if args.debug else logging.INFO
-    logging.basicConfig(
-        level=log_level,
-        format="%(asctime)-15s %(name)-8s %(levelname)s: %(message)s",
-    )
+    logging.basicConfig(level=log_level, format="%(asctime)-15s %(name)-8s %(levelname)s: %(message)s")
 
     asyncio.run(main(args))
-    
