@@ -36,12 +36,13 @@ except ImportError:
 import sys
 import os
 
-import time
 import argparse
 import logging.handlers
-import cProfile
 
-from btgattmitm.connector import BluepyConnector
+from btgattmitm.connector import AbstractConnector
+
+# from btgattmitm.bluepyconnector import BluepyConnector as Connector
+from btgattmitm.bleakconnector import BleakConnector as Connector
 from btgattmitm.mitmmanager import MitmManager
 
 
@@ -77,15 +78,39 @@ def configure_logger(logFile):
         fileHandler.setFormatter(logFormatter)
         rootLogger.addHandler(fileHandler)
 
+    asyncio_logger = logging.getLogger("asyncio")
+    asyncio_logger.setLevel(logging.INFO)
 
-def start_mitm(btServiceAddress, listenMode):
+    bleak_logger = logging.getLogger("bleak")
+    bleak_logger.setLevel(logging.INFO)
+
+
+def start_mitm(btServiceAddress, listenMode, bt_name, bt_service_uuids, dumpdevice_path):
     connection = None
     device = None
     try:
-        connection = BluepyConnector(btServiceAddress)
+        connection: AbstractConnector = Connector(btServiceAddress)
+        # connection = BluepyConnector(btServiceAddress)
         device = MitmManager()
-        device.start(connection, listenMode)
+
+        if bt_name:
+            device.advertisement.set_local_name(bt_name)
+        if bt_service_uuids:
+            device.advertisement.add_service_uuid_list(bt_service_uuids)
+
+        if device.configure(connection, listenMode) is False:
+            return
+
+        device_config = None
+        if dumpdevice_path:
+            device_config = {}
+            device_config["address"] = bt_name
+            device_config["name"] = btServiceAddress
+
+        device.start(connection)
+
     finally:
+        _LOGGER.info("disconnecting application")
         if device is not None:
             device.stop()
         if connection is not None:
@@ -97,76 +122,50 @@ def start_mitm(btServiceAddress, listenMode):
 ## ========================================================================
 
 
-if __name__ != "__main__":
-    sys.exit(0)
+def main():
+    parser = argparse.ArgumentParser(description="Bluetooth GATT MITM")
+    # parser.add_argument('--config', action='store', required=False, help='JSON config file' )
+    parser.add_argument("--connect", action="store", required=False, help="BT address to connect to")
+    parser.add_argument("--bt-name", action="store", required=False, help="Device name to advertise")
+    parser.add_argument(
+        "--bt-service-uuids", nargs="*", action="store", required=False, help="List of service UUIDs to advertise"
+    )
+    parser.add_argument(
+        "--listen",
+        action="store_const",
+        const=True,
+        default=False,
+        help="Automatically subscribe for all notifications from service",
+    )
+    parser.add_argument("--dumpdevice", action="store", required=False, help="Store device configuration to file")
 
-parser = argparse.ArgumentParser(description="Bluetooth GATT MITM")
-parser.add_argument("--profile", action="store_const", const=True, default=False, help="Profile the code")
-parser.add_argument("--pfile", action="store", default=None, help="Profile the code and output data to file")
-# parser.add_argument('--mode', action='store', required=True, choices=["BF", "POLY", "COMMON"], help='Mode' )
-# parser.add_argument('--file', action='store', required=True, help='File with data' )
-parser.add_argument("--connect", action="store", required=True, help="BT address to connect to")
-parser.add_argument(
-    "--listen",
-    action="store_const",
-    const=True,
-    default=False,
-    help="Automatically subscribe for all notifications from service",
-)
+    args = parser.parse_args()
 
+    logDir = os.path.join(SCRIPT_DIR, "../../tmp/log")
+    if os.path.isdir(logDir) is False:
+        logDir = os.getcwd()
+    log_file = os.path.join(logDir, "log.txt")
 
-args = parser.parse_args()
+    configure_logger(log_file)
 
+    _LOGGER.debug("Starting the application")
+    _LOGGER.debug("Logger log file: %s" % log_file)
 
-logDir = os.path.join(SCRIPT_DIR, "../../tmp")
-if os.path.isdir(logDir) is False:
-    logDir = os.getcwd()
-log_file = os.path.join(logDir, "log.txt")
+    exitCode = 0
 
-configure_logger(log_file)
+    try:
 
+        exitCode = start_mitm(args.connect, args.listen, args.bt_name, args.bt_service_uuids, args.dumpdevice)
 
-_LOGGER.debug("Starting the application")
-_LOGGER.debug("Logger log file: %s" % log_file)
+    # except BluetoothError as e:
+    #     print("Error: ", e, " check if BT is powered on")
 
-
-starttime = time.time()
-profiler = None
-
-exitCode = 0
-
-
-try:
-
-    profiler_outfile = args.pfile
-    if args.profile is True or profiler_outfile is not None:
-        print("Starting profiler")
-        profiler = cProfile.Profile()
-        profiler.enable()
-
-    exitCode = start_mitm(args.connect, args.listen)
-
-
-# except BluetoothError as e:
-#     print("Error: ", e, " check if BT is powered on")
-
-except:  # noqa    # pylint: disable=W0702
-    _LOGGER.exception("Exception occured")
-    raise
-
-finally:
-    _LOGGER.info("")  ## print new line
-    if profiler is not None:
-        profiler.disable()
-        if profiler_outfile is None:
-            _LOGGER.info("Generating profiler data")
-            profiler.print_stats(1)
-        else:
-            _LOGGER.info("Storing profiler data to %s", profiler_outfile)
-            profiler.dump_stats(profiler_outfile)
-            _LOGGER.info("pyprof2calltree -k -i %s", profiler_outfile)
-
-    timeDiff = (time.time() - starttime) * 1000.0
-    _LOGGER.info("Calculation time: {:13.8f}ms\n\n".format(timeDiff))
+    except:  # noqa    # pylint: disable=W0702
+        _LOGGER.exception("Exception occured")
+        raise
 
     sys.exit(exitCode)
+
+
+if __name__ == "__main__":
+    main()

@@ -53,7 +53,9 @@ workaround is to directly insert address of MITM service
 
 ### References:
 - https://github.com/Vudentz/BlueZ
-- https://dbus.freedesktop.org/doc/dbus-python/index.html
-- https://ianharvey.github.io/bluepy-doc/index.html
 - https://github.com/Vudentz/BlueZ/blob/master/test/example-gatt-server
 - https://github.com/Vudentz/BlueZ/blob/master/test/example-advertisement
+- [D-Bus specification with Type System](https://dbus.freedesktop.org/doc/dbus-specification.html)
+- [dbus-python binding module](https://dbus.freedesktop.org/doc/dbus-python/index.html)
+- https://ianharvey.github.io/bluepy-doc/index.html
+- https://punchthrough.com/creating-a-ble-peripheral-with-bluez/

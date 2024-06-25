@@ -35,8 +35,9 @@ echo "black -- no warnings found"
 ## E402 module level import not at top of file
 ## E501 line too long (80 > 79 characters)
 ## W391 blank line at end of file
+## W503 line break before binary operator (because of black)
 ## D    all docstyle checks
-ignore_errors=E115,E126,E201,E202,E221,E241,E262,E265,E266,E402,E501,W391,D
+ignore_errors=E115,E126,E201,E202,E221,E241,E262,E265,E266,E402,E501,W391,W503,D
 
 
 echo "running pycodestyle"

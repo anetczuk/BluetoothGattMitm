@@ -6,8 +6,8 @@ import logging
 
 import dbus
 
-from .constants import DBUS_OM_IFACE
-from .constants import BLUEZ_SERVICE_NAME, GATT_MANAGER_IFACE, LE_ADVERTISING_MANAGER_IFACE
+from btgattmitm.constants import DBUS_OM_IFACE
+from btgattmitm.constants import BLUEZ_SERVICE_NAME, GATT_MANAGER_IFACE, LE_ADVERTISING_MANAGER_IFACE
 
 
 _LOGGER = logging.getLogger(__name__)

@@ -37,8 +37,8 @@ from bleak import BleakClient, BleakScanner
 streamHandler = logging.StreamHandler(stream=sys.stdout)
 logging.basicConfig(level=logging.NOTSET, handlers=[streamHandler])
 
-bleak_logger = logging.getLogger("bleak")
-bleak_logger.setLevel(logging.WARNING)
+# bleak_logger = logging.getLogger("bleak")
+# bleak_logger.setLevel(logging.WARNING)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,61 +66,24 @@ def main():
 
         async with BleakClient(device) as client:
             _LOGGER.info("connected")
-            pprint.pprint(dir(client))
+            # pprint.pprint(dir(client))
 
             client_data = client.services
 
-            for item in client_data.services.values():
-                _LOGGER.info(f"service: {item} {type(item)}")
-                # pprint.pprint(dir(item))
-                for char_item in item.characteristics:
-                    _LOGGER.info(f"    char: {char_item}")
-
-            # for item in client_data.characteristics.values():
-            #     _LOGGER.info(f"char: {item} props: {item.properties}")
-            #     value = await client.read_gatt_char(item.handle)
-            #     _LOGGER.info(f"    value: {value}")
-
-            for item in client_data.descriptors.values():
-                _LOGGER.info(f"desc: {item}")
+            for serv_item in client_data.services.values():
+                _LOGGER.info(f"service: {serv_item} {type(serv_item)}")
+                # pprint.pprint(dir(serv_item))
+                for char_item in serv_item.characteristics:
+                    value_str = ""
+                    if "read" in char_item.properties:
+                        value = await client.read_gatt_char(char_item.handle)
+                        value_str = f" value: {value}"
+                    _LOGGER.info(f"    char: {char_item} props: {char_item.properties}{value_str}")
+                    for desc_item in char_item.descriptors:
+                        _LOGGER.info(f"        desc: {desc_item}")
 
             value = await client.read_gatt_char("00002a00-0000-1000-8000-00805f9b34fb")
-            _LOGGER.info(f"    value: {value}")
-
-            for handle in range(0, 40):
-                data = client.read_gatt_descriptor(handle)
-                _LOGGER.info(f"handle {handle} descriptor: {data.decode()}")
-
-            # for service_item in client.services:
-            #     _LOGGER.info(f"service: {service_item}")
-            #     for char_item in service_item.characteristics:
-            #         _LOGGER.info(f"    char: {char_item} props: {char_item.properties}")
-            #         # value = await client.read_gatt_char(char_item.handle)
-            #         # _LOGGER.info(f"    value: {value}")
-
-    # async def connect_bleak(address):
-    #     for _ in range(0, 100):
-    #         try:
-    #             async with BleakClient(address) as client:
-    #                 _LOGGER.info("connected")
-    #
-    #                 # servs = client.get_services()
-    #                 # _LOGGER.info(f"xxxx: {servs} {type(servs)}")
-    #
-    #                 for service_item in client.services:
-    #                     _LOGGER.info(f"service: {service_item}")
-    #                     for char_item in service_item.characteristics:
-    #                         _LOGGER.info(f"    char: {char_item} props: {char_item.properties}")
-    #                         # value = await client.read_gatt_char(char_item.handle)
-    #                         # _LOGGER.info(f"    value: {value}")
-    #             return
-    #         except bleak.exc.BleakDeviceNotFoundError:
-    #             _LOGGER.exception(f"exception received")
-    #             return
-    #         except bleak.exc.BleakDBusError as exc:
-    #             _LOGGER.error(f"exception received: {exc}")
-    #             #_LOGGER.exception(f"exception received")
-    #         time.sleep(1)
+            _LOGGER.info(f"device name: {value}")
 
     asyncio.run(connect_bleak(address))
 

@@ -14,6 +14,7 @@ import dbus.mainloop.glib
 import dbus.service
 import time
 import threading
+import pprint
 
 try:
     from gi.repository import GObject  # python3
@@ -124,8 +125,10 @@ class Advertisement(dbus.service.Object):
         print("GetAll")
         if interface != LE_ADVERTISEMENT_IFACE:
             raise InvalidArgsException()
+        props_dict = self.get_properties()
         print("returning props")
-        return self.get_properties()[LE_ADVERTISEMENT_IFACE]
+        pprint.pprint(props_dict)
+        return props_dict[LE_ADVERTISEMENT_IFACE]
 
     @dbus.service.method(LE_ADVERTISEMENT_IFACE, in_signature="", out_signature="")
     def Release(self):
@@ -135,13 +138,14 @@ class Advertisement(dbus.service.Object):
 class TestAdvertisement(Advertisement):
     def __init__(self, bus, index):
         Advertisement.__init__(self, bus, index, "peripheral")
-        self.add_service_uuid("180D")
-        self.add_service_uuid("180F")
-        self.add_manufacturer_data(0xFFFF, [0x00, 0x01, 0x02, 0x03])
-        self.add_service_data("9999", [0x00, 0x01, 0x02, 0x03, 0x04])
-        self.add_local_name("TestAdvertisement")
-        self.include_tx_power = True
-        self.add_data(0x26, [0x01, 0x01, 0x00])
+        # self.add_local_name("TestAdvertisement2")
+        self.add_local_name("DESK 2256")
+        # self.add_service_uuid("180D")
+        # self.add_service_uuid("180F")
+        # self.add_manufacturer_data(0xFFFF, [0x00, 0x01, 0x02, 0x03])
+        # self.add_service_data("9999", [0x00, 0x01, 0x02, 0x03, 0x04])
+        # self.include_tx_power = True
+        # self.add_data(0x26, [0x01, 0x01, 0x00])
 
 
 def register_ad_cb():

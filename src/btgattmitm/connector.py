@@ -22,19 +22,121 @@
 # SOFTWARE.
 #
 
-import struct
 import logging
 
 from time import sleep
 from threading import Thread
 
-from bluepy import btle
-
-from .synchronized import synchronized
-from .exception import InvalidStateError
-
 
 _LOGGER = logging.getLogger(__name__)
+
+
+# =====================================================
+
+
+class CharacteristicData:
+    def __init__(self, char_uuid, char_name, char_handle, char_props):
+        self._uuid = char_uuid
+        self._common_name = char_name
+        self._handle = char_handle
+        self._props_list = char_props
+
+    @property
+    def uuid(self):
+        return self._uuid
+
+    def getCommonName(self):
+        if self._common_name is None:
+            return self.uuid
+        return self._common_name
+
+    @property
+    def properties(self):
+        return self._props_list
+
+    def getHandle(self):
+        return self._handle
+
+
+class ServiceData:
+    def __init__(self, service_uuid, service_name=None):
+        self._uuid = service_uuid
+        self._common_name = service_name
+        self._chars_list = []
+
+    @property
+    def uuid(self):
+        return self._uuid
+
+    def getCommonName(self):
+        if self._common_name is None:
+            return self.uuid
+        return self._common_name
+
+    def getCharacteristics(self):
+        return self._chars_list
+
+    def add_characteristic(self, char_uuid, char_name, char_handle, char_props):
+        char_data = CharacteristicData(char_uuid, char_name, char_handle, char_props)
+        self._chars_list.append(char_data)
+
+    def print_data(self):
+        _LOGGER.debug("Service: %s [%s]", self.uuid, self.getCommonName())
+        chars_list = self.getCharacteristics()
+        for char_item in chars_list:
+            _LOGGER.debug(
+                "  Char: %s [%s] h:%i p:%s",
+                char_item.uuid,
+                char_item.getCommonName(),
+                char_item.getHandle(),
+                char_item.properties,
+            )
+
+
+# =====================================================
+
+
+class AbstractConnector:
+    def is_connected(self) -> bool:
+        raise NotImplementedError()
+
+    def get_address(self) -> str:
+        raise NotImplementedError()
+
+    def disconnect(self):
+        raise NotImplementedError()
+
+    def get_device_properties(self):
+        raise NotImplementedError()
+
+    def get_services(self):
+        raise NotImplementedError()
+
+    def read_characteristic(self, handle):
+        raise NotImplementedError()
+
+    def write_characteristic(self, handle, val):
+        raise NotImplementedError()
+
+    def subscribe_for_notification(self, handle, callback):
+        raise NotImplementedError()
+
+    def unsubscribe_from_notification(self, handle, callback):
+        raise NotImplementedError()
+
+    def process_notifications(self):
+        raise NotImplementedError()
+
+    def print_services(self, serv_list):
+        if not serv_list:
+            _LOGGER.debug("no services")
+            return
+        _LOGGER.debug("Found services:")
+        for serv in serv_list:
+            serv.print_data()
+
+
+# =====================================================
 
 
 class CallbackContainer:
@@ -60,133 +162,10 @@ class CallbackContainer:
         return None
 
 
-class BluepyConnector(btle.DefaultDelegate):
-    """
-    classdocs
-    """
-
-    def __init__(self, mac):
-        """
-        Constructor
-        """
-        btle.DefaultDelegate.__init__(self)
-
-        self.address = mac
-        self._peripheral = None
-        self.callbacks = CallbackContainer()
-
-    #     def __del__(self):
-    #         print("destroying", self.__class__.__name__)
-
-    def get_services(self):
-        peripheral = self._connect()
-        if peripheral is None:
-            return None
-        _LOGGER.debug("getting services")
-        return peripheral.getServices()
-
-    def print_services(self):
-        _LOGGER.debug("Discovering services")
-        peripheral = self._connect()
-        if peripheral is None:
-            return
-        serviceList = peripheral.getServices()
-        for s in serviceList:
-            _LOGGER.debug("Service: %s[%s]", s.uuid, s.uuid.getCommonName())
-            charsList = s.getCharacteristics()
-            for ch in charsList:
-                _LOGGER.debug("Char: %s h:%i p:%s", ch, ch.getHandle(), ch.propertiesToString())
-
-    #             descList = s.getDescriptors()
-    #             for desc in descList:
-    # #                 _LOGGER.debug("Desc: %s: %s", desc, desc.read())
-    # #                 _LOGGER.debug("Desc: %s %s %s", desc, dir(desc), vars(desc) )
-    # #                 _LOGGER.debug("Desc: %s uuid:%s h:%i v:%s", desc, desc.uuid, desc.handle, desc.read() )
-    #                 _LOGGER.debug("Desc: %s uuid:%s h:%i", desc, desc.uuid, desc.handle )
-
-    @synchronized
-    def _connect(self):
-        if self._peripheral is not None:
-            return self._peripheral
-
-        # addrType = btle.ADDR_TYPE_PUBLIC
-        addrType = btle.ADDR_TYPE_RANDOM
-        _LOGGER.debug(f"connecting to device {self.address} type: {addrType}")
-        for _ in range(0, 2):
-            try:
-                conn = btle.Peripheral()
-                conn.withDelegate(self)
-                conn.connect(self.address, addrType=addrType)
-                # conn.connect(self.address, addrType=btle.ADDR_TYPE_RANDOM)
-                # conn.connect(self.address, addrType='random')
-                _LOGGER.debug("connected")
-                self._peripheral = conn
-                return self._peripheral
-            except btle.BTLEException as ex:
-                self._peripheral = None
-                _LOGGER.debug("Unable to connect to the device %s, retrying: %s", self.address, ex)
-
-        return None
-
-    @synchronized
-    def disconnect(self):
-        _LOGGER.debug("Disconnecting")
-        if self._peripheral is not None:
-            self._peripheral.disconnect()
-        self._peripheral = None
-
-    def handleNotification(self, cHandle, data):
-        try:
-            ## _LOGGER.debug("new notification: %s >%s<", cHandle, data)
-            callbacks = self.callbacks.get(cHandle)
-            if callbacks is None:
-                ##_LOGGER.debug("no callback found for handle: %i", cHandle)
-                return
-            for function in callbacks:
-                if function is not None:
-                    function(data)
-        except:  # noqa    # pylint: disable=W0702
-            _LOGGER.exception("notification exception")
-
-    def handleDiscovery(self, scanEntry, isNewDev, isNewData):
-        _LOGGER.debug("new discovery: %s %s %s", scanEntry, isNewDev, isNewData)
-
-    @synchronized
-    def write_characteristic(self, handle, val, withResponse=False):
-        if self._peripheral is None:
-            raise InvalidStateError("not connected")
-        return self._peripheral.writeCharacteristic(handle, val, withResponse)
-
-    @synchronized
-    def read_characteristic(self, handle):
-        if self._peripheral is None:
-            raise InvalidStateError("not connected")
-        return self._peripheral.readCharacteristic(handle)
-
-    @synchronized
-    def subscribe_for_notification(self, handle, callback):
-        data = struct.pack("BB", 1, 0)
-        ret = self.write_characteristic(handle, data)
-        self.callbacks.register(handle, callback)
-        return ret
-
-    @synchronized
-    def unsubscribe_from_notification(self, handle, callback):
-        data = struct.pack("BB", 0, 0)
-        ret = self.write_characteristic(handle, data)
-        self.callbacks.unregister(handle, callback)
-        return ret
-
-    @synchronized
-    def process_notifications(self):
-        if self._peripheral is not None:
-            self._peripheral.waitForNotifications(0.1)
-
-
 class NotificationHandler(Thread):
-    def __init__(self, connector):
+    def __init__(self, connector: AbstractConnector):
         Thread.__init__(self)
-        self.connector = connector
+        self.connector: AbstractConnector = connector
         self.daemon = True
         self.execute = True
 

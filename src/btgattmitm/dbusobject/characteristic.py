@@ -8,81 +8,15 @@ import logging
 
 import dbus.service
 
-from .constants import DBUS_OM_IFACE, DBUS_PROP_IFACE
-from .constants import GATT_SERVICE_IFACE, GATT_CHRC_IFACE
-from .exception import InvalidArgsException, NotSupportedException
+from btgattmitm.constants import DBUS_PROP_IFACE
+from btgattmitm.constants import GATT_CHRC_IFACE
+from btgattmitm.dbusobject.exception import InvalidArgsException, NotSupportedException
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class ServiceBase(dbus.service.Object):
-    PATH_BASE = "/org/bluez/example/service"
-
-    def __init__(self, bus, index, uuid, primary):
-        self.path = self.PATH_BASE + str(index)
-        self.bus = bus
-        self.uuid = uuid
-        self.primary = primary
-        self.characteristics = []
-        dbus.service.Object.__init__(self, bus, self.path)
-
-    def get_properties(self):
-        props = {
-            GATT_SERVICE_IFACE: {
-                "UUID": self.uuid,
-                "Primary": self.primary,
-                "Characteristics": dbus.Array(self.get_characteristic_paths(), signature="o"),
-            }
-        }
-        #         print( "returning props:", props )
-        return props
-
-    def get_path(self):
-        path = dbus.ObjectPath(self.path)
-        #         print( "returning path:", path )
-        return path
-
-    def add_characteristic(self, characteristic):
-        self.characteristics.append(characteristic)
-
-    def get_characteristic_paths(self):
-        result = []
-        for chrc in self.characteristics:
-            result.append(chrc.get_path())
-        #         print( "returning char paths:", result )
-        return result
-
-    def get_characteristics(self):
-        #         print( "returning chars:", self.characteristics )
-        return self.characteristics
-
-    @dbus.service.method(DBUS_PROP_IFACE, in_signature="s", out_signature="a{sv}")
-    def GetAll(self, interface):
-        if interface != GATT_SERVICE_IFACE:
-            raise InvalidArgsException()
-
-        allprops = self.get_properties[GATT_SERVICE_IFACE]
-        #         print( "returning all props:", allprops )
-        return allprops
-
-    @dbus.service.method(DBUS_OM_IFACE, out_signature="a{oa{sa{sv}}}")
-    def GetManagedObjects(self):
-        response = {}
-        #         print('GetManagedObjects')
-
-        response[self.get_path()] = self.get_properties()
-        chrcs = self.get_characteristics()
-        for chrc in chrcs:
-            response[chrc.get_path()] = chrc.get_properties()
-            descs = chrc.get_descriptors()
-            for desc in descs:
-                response[desc.get_path()] = desc.get_properties()
-        #         print( "returning objects:", response )
-        return response
-
-
-class CharacteristicBase(dbus.service.Object):
+class Characteristic(dbus.service.Object):
     def __init__(self, bus, index, uuid, flags, service):
         self.path = service.path + "/char" + str(index)
         self.bus = bus
@@ -132,27 +66,67 @@ class CharacteristicBase(dbus.service.Object):
         return props
 
     ### called on read request from connected device
-    @dbus.service.method(GATT_CHRC_IFACE, out_signature="ay")
-    def ReadValue(self):
+    # @dbus.service.method(GATT_CHRC_IFACE, out_signature="ay")
+    @dbus.service.method(GATT_CHRC_IFACE, in_signature="a{sv}", out_signature="ay")
+    def ReadValue(self, options):
         try:
             value = self.readValueHandler()
-            wrapped = self._wrap(value)
-            _LOGGER.debug("Sending data to client: %s", repr(wrapped))
-            return wrapped
+            # value = self._wrap(value)
+            # _LOGGER.debug("Sending data to client: %s", repr(value))
+            return value
         except:  # noqa    # pylint: disable=W0702
             logging.exception("Exception occured")
             raise
 
     ### called when connected device send something to characteristic
-    @dbus.service.method(GATT_CHRC_IFACE, in_signature="ay")
-    def WriteValue(self, value):
+    # @dbus.service.method(GATT_CHRC_IFACE, in_signature="ay")
+    @dbus.service.method(GATT_CHRC_IFACE, in_signature="aya{sv}")
+    def WriteValue(self, value, options):
         try:
-            _LOGGER.debug("Received data from client: %s", repr(value))
-            unwrapped = self._unwrap(value)
-            self.writeValueHandler(unwrapped)
+            # _LOGGER.debug("Received data from client: %s", repr(value))
+            # value = self._unwrap(value)
+            return self.writeValueHandler(value)
         except:  # noqa    # pylint: disable=W0702
             logging.exception("Exception occured")
             raise
+
+    @dbus.service.method(GATT_CHRC_IFACE)
+    def StartNotify(self):
+        try:
+            self.startNotifyHandler()
+        except:  # noqa    # pylint: disable=W0702
+            logging.exception("Exception occured")
+            raise
+
+    @dbus.service.method(GATT_CHRC_IFACE)
+    def StopNotify(self):
+        try:
+            self.stopNotifyHandler()
+        except:  # noqa    # pylint: disable=W0702
+            logging.exception("Exception occured")
+            raise
+
+    @dbus.service.signal(DBUS_PROP_IFACE, signature="sa{sv}as")
+    def PropertiesChanged(self, interface, changed, invalidated):
+        pass
+
+    # =======================================================
+
+    def readValueHandler(self):
+        _LOGGER.debug("Default ReadValue called, returning error")
+        raise NotSupportedException()
+
+    def writeValueHandler(self, value):
+        _LOGGER.debug("Default WriteValue called, returning error")
+        raise NotSupportedException()
+
+    def startNotifyHandler(self):
+        _LOGGER.debug("Default StartNotify called, returning error")
+        raise NotSupportedException()
+
+    def stopNotifyHandler(self):
+        _LOGGER.debug("Default StopNotify called, returning error")
+        raise NotSupportedException()
 
     def _wrap(self, value):
         ##return dbus.Array( value, dbus.Signature('ay') )
@@ -177,42 +151,6 @@ class CharacteristicBase(dbus.service.Object):
             return int(value)
         _LOGGER.debug("Unsupported type: %s", repr(value))
         return None
-
-    @dbus.service.method(GATT_CHRC_IFACE)
-    def StartNotify(self):
-        try:
-            self.startNotifyHandler()
-        except:  # noqa    # pylint: disable=W0702
-            logging.exception("Exception occured")
-            raise
-
-    @dbus.service.method(GATT_CHRC_IFACE)
-    def StopNotify(self):
-        try:
-            self.stopNotifyHandler()
-        except:  # noqa    # pylint: disable=W0702
-            logging.exception("Exception occured")
-            raise
-
-    def readValueHandler(self):
-        _LOGGER.debug("Default ReadValue called, returning error")
-        raise NotSupportedException()
-
-    def writeValueHandler(self, value):
-        _LOGGER.debug("Default WriteValue called, returning error")
-        raise NotSupportedException()
-
-    def startNotifyHandler(self):
-        _LOGGER.debug("Default StartNotify called, returning error")
-        raise NotSupportedException()
-
-    def stopNotifyHandler(self):
-        _LOGGER.debug("Default StopNotify called, returning error")
-        raise NotSupportedException()
-
-    @dbus.service.signal(DBUS_PROP_IFACE, signature="sa{sv}as")
-    def PropertiesChanged(self, interface, changed, invalidated):
-        pass
 
 
 # class RCharacteristic(Characteristic):
