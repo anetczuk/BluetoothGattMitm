@@ -5,11 +5,13 @@
 #
 
 import logging
+from typing import List
 import pprint
 
 import dbus
 
 from btgattmitm.constants import DBUS_OM_IFACE
+from btgattmitm.dbusobject.service import Service
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -25,14 +27,14 @@ class Application(dbus.service.Object):
     def __init__(self, bus):
         _LOGGER.debug("Initializing Application")
         self.path = self.PATH_BASE
-        self.services = []
+        self.services: List[Service] = []
         dbus.service.Object.__init__(self, bus, self.path)
+
+    def add_service(self, service: Service):
+        self.services.append(service)
 
     def get_path(self):
         return dbus.ObjectPath(self.path)
-
-    def add_service(self, service):
-        self.services.append(service)
 
     @dbus.service.method(DBUS_OM_IFACE, out_signature="a{oa{sa{sv}}}")
     def GetManagedObjects(self):

@@ -5,6 +5,7 @@
 #
 
 import logging
+from typing import List
 
 import dbus.service
 
@@ -21,17 +22,22 @@ class Characteristic(dbus.service.Object):
         self.path = service.path + "/char" + str(index)
         self.bus = bus
         self.uuid = uuid
+        self.handler = index
         self.service = service
-        self.flags = flags
+        self.prop_flags = flags
         self.descriptors = []
         dbus.service.Object.__init__(self, bus, self.path)
+
+    def get_properties_list(self) -> List[str]:
+        """Return list of properties (flag) names."""
+        return self.prop_flags
 
     def get_properties(self):
         props = {
             GATT_CHRC_IFACE: {
                 "Service": self.service.get_path(),
                 "UUID": self.uuid,
-                "Flags": self.flags,
+                "Flags": self.prop_flags,
                 "Descriptors": dbus.Array(self.get_descriptor_paths(), signature="o"),
             }
         }

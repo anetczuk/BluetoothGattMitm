@@ -22,8 +22,8 @@
 # SOFTWARE.
 #
 
-import struct
 import logging
+from typing import List
 
 try:
     from gi.repository import GObject
@@ -34,7 +34,7 @@ import dbus
 from btgattmitm.dbusobject.service import Service
 from btgattmitm.dbusobject.characteristic import Characteristic
 from btgattmitm.constants import GATT_CHRC_IFACE, BLUEZ_SERVICE_NAME, GATT_MANAGER_IFACE
-from btgattmitm.connector import ServiceData, AbstractConnector
+from btgattmitm.connector import ServiceData, AbstractConnector, ServiceConnector, CharacteristicData
 from btgattmitm.dbusobject.application import Application
 from btgattmitm.find_adapter import find_gatt_adapter
 
@@ -51,11 +51,11 @@ class CharacteristicMock(Characteristic):
     classdocs
     """
 
-    def __init__(self, btCharacteristic, bus, index, service, connector: AbstractConnector, listenMode):
+    def __init__(self, btCharacteristic: CharacteristicData, bus, index, service, connector: ServiceConnector, listenMode):
         """
         Characteristic
         """
-        self.connector: AbstractConnector = connector
+        self.connector: ServiceConnector = connector
         self.cHandler = btCharacteristic.getHandle()
 
         btUuid = btCharacteristic.uuid
@@ -77,7 +77,7 @@ class CharacteristicMock(Characteristic):
             ncount = flags.count("notify") + flags.count("indicate")
             if ncount > 0:
                 _LOGGER.debug("Subscribing for %s", self.chUuid)
-                connector.subscribe_for_notification(self.cHandler, self._handle_notification)
+                self.connector.subscribe_for_notification(self.cHandler, self._handle_notification)
 
     def __del__(self):
         pass
@@ -119,6 +119,9 @@ class CharacteristicMock(Characteristic):
         vallist = []
         for x in value:
             vallist.append(dbus.Byte(x))
+        if not vallist:
+            _LOGGER.debug("Unable to notify empty list")
+            return
         self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": vallist}, [])
 
     def _convert_data(self, data):
@@ -133,7 +136,7 @@ class ServiceMock(Service):
     classdocs
     """
 
-    def __init__(self, btService: ServiceData, bus, index, connector: AbstractConnector, listenMode):
+    def __init__(self, btService: ServiceData, bus, index, connector: ServiceConnector, listenMode):
         """
         Service
         """
@@ -149,26 +152,13 @@ class ServiceMock(Service):
     def __del__(self):
         pass
 
-    def _mock_characteristics(self, btService: ServiceData, bus, connector: AbstractConnector, listenMode):
-        charsList = btService.getCharacteristics()
+    def _mock_characteristics(self, btService: ServiceData, bus, connector: ServiceConnector, listenMode):
+        charsList: List[CharacteristicData] = btService.getCharacteristics()
         charIndex = 0
         for btCh in charsList:
             char = CharacteristicMock(btCh, bus, charIndex, self, connector, listenMode)
             self.add_characteristic(char)
             charIndex += 1
-
-    # def register(self, gattManager):
-    #     gattManager.RegisterService(
-    #         self.get_path(), {}, reply_handler=self._register_service_cb, error_handler=self._register_service_error_cb
-    #     )
-    #
-    # def _register_service_cb(self):
-    #     _LOGGER.info("GATT service registered: uuid:%s", self.uuid)
-    #
-    # #         _LOGGER.info('GATT service registered: %s uuid:%s', self.__class__.__name__, self.uuid)
-    #
-    # def _register_service_error_cb(self, error):
-    #     _LOGGER.error("Failed to register service: %s uuid:%s", str(error), self.uuid)
 
 
 # ==================================================================
@@ -241,6 +231,42 @@ class BatteryLevelCharacteristic(Characteristic):
 # ==================================================================
 
 
+class ConfigConnector(ServiceConnector):
+    
+    def __init__(self, config_list):
+        self.config_list = config_list
+        self.value_dict = {}
+        # read values
+        for service_item in self.config_list:
+            chars_list = service_item.get("characteristics")
+            for char_uuid, char_item in chars_list.items():
+                char_handle = char_item.get("handle")
+                self.value_dict[char_handle] = char_item.get("value")
+
+    def read_characteristic(self, handle):
+        return self.value_dict[handle]
+
+    def write_characteristic(self, handle, val):
+        self.value_dict[handle] = val
+
+    def subscribe_for_notification(self, handle, callback):
+        pass
+        # raise NotImplementedError()
+
+    def unsubscribe_from_notification(self, handle, callback):
+        pass
+        # raise NotImplementedError()
+
+    def _find_config_item(self, handle):
+        for service_item in self.config_list:
+            chars_list = service_item.get("characteristics")
+            for char_item in chars_list:
+                char_handle = char_item.get("handle")
+                if char_handle == handle:
+                    return char_item
+        return None
+
+
 class ApplicationMock(Application):
     """
     classdocs
@@ -266,31 +292,41 @@ class ApplicationMock(Application):
         gattObj = self.bus.get_object(BLUEZ_SERVICE_NAME, gatt_adapter)
         self.gattManager = dbus.Interface(gattObj, GATT_MANAGER_IFACE)
 
-    def prepare(self, connector: AbstractConnector, listenMode):
+    def clone_services(self, connector: AbstractConnector, listenMode: bool):
         _LOGGER.debug("Getting services")
-        serviceList = connector.get_services()
+        serviceList: List[ServiceData] = connector.get_services()
         if serviceList is None:
-            _LOGGER.debug("Could not get list of services - adding sample service")
-
-            # add sample service - otherwise application registering will fail
-            service = BatteryService(self.bus, 0)
-            self.add_service(service)
+            _LOGGER.debug("Could not get list of services")
             return False
+        _LOGGER.debug("Mocking services from device")
+        self._mock_services(connector, listenMode, serviceList)
+        return True
 
+    def prepare_services(self, services_cfg_list):
+        _LOGGER.debug("Mocking services from config")
+        connector = ConfigConnector(services_cfg_list)
+        serviceList: List[ServiceData] = ServiceData.prepare_from_config(services_cfg_list)
+        self._mock_services(connector, False, serviceList)
+        return True
+
+    def _mock_services(self, connector: ServiceConnector, listenMode: bool, serviceList):
         _LOGGER.debug("Registering services")
         serviceIndex = -1
         for serv in serviceList:
-            if serv.uuid == "00001800-0000-1000-8000-00805f9b34fb":
+            uuid = serv.uuid
+            if uuid in ("00001800-0000-1000-8000-00805f9b34fb", "00001801-0000-1000-8000-00805f9b34fb"):
                 ## causes Failed to register application: org.bluez.Error.Failed: Failed to create entry in database
-                _LOGGER.debug("Skipping service: %s", serv.uuid)
-                continue
-            if serv.uuid == "00001801-0000-1000-8000-00805f9b34fb":
-                ## causes Failed to register application: org.bluez.Error.Failed: Failed to create entry in database
-                _LOGGER.debug("Skipping service: %s", serv.uuid)
+                _LOGGER.debug("Skipping service: %s", uuid)
                 continue
             serviceIndex += 1
             service = ServiceMock(serv, self.bus, serviceIndex, connector, listenMode)
             self.add_service(service)
+
+    def prepare_sample(self):
+        _LOGGER.debug("Adding sample service")
+        # add sample service - otherwise application registering will fail
+        service = BatteryService(self.bus, 0)
+        self.add_service(service)
         return True
 
     def register(self):
@@ -304,6 +340,22 @@ class ApplicationMock(Application):
     def unregister(self):
         ## do nothing
         pass
+
+    def get_services_config(self):
+        services_data: List[ServiceData] = []
+        for serv_item in self.services:
+            serv_uuid = serv_item.uuid
+            serv_name = "???"
+            serv_data = ServiceData(serv_uuid, serv_name)
+            chars_list: List[Characteristic] = serv_item.characteristics
+            for char_item in chars_list:
+                char_uuid = char_item.uuid
+                char_name = "???"
+                char_handle = char_item.handler
+                char_props = char_item.get_properties_list()
+                serv_data.add_characteristic(char_uuid, char_name, char_handle, char_props)
+            services_data.append(serv_data)
+        return ServiceData.dump_config(services_data)
 
     # def _register_services_old(self):
     #     for service in self.services:

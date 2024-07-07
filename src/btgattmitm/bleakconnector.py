@@ -30,7 +30,7 @@ import asyncio
 
 from btgattmitm.synchronized import synchronized
 from btgattmitm.dbusobject.exception import InvalidStateError
-from btgattmitm.connector import AbstractConnector, CallbackContainer, ServiceData
+from btgattmitm.connector import AbstractConnector, CallbackContainer, ServiceData, AdvertisementData
 
 from bleak import BleakClient, BleakScanner
 
@@ -54,7 +54,7 @@ class SyncedBleakDevice:
     def disconnect(self):
         pass
 
-    def getServices(self):
+    def getServices(self) -> List[ServiceData]:
         coroutine = self._async_get_services()
         return self.running_loop.run_until_complete(coroutine)
 
@@ -163,17 +163,22 @@ class BleakConnector(AbstractConnector):
     def get_address(self) -> str:
         return self.address
 
-    def get_device_properties(self):
+    def get_device_properties(self) -> AdvertisementData:
         if self._peripheral is None:
             return None
-        return self._peripheral.device_props
+        props = self._peripheral.device_props
+        name = props.get("Name")
+        uuids = props.get("UUIDs", [])
+        man_data = props.get("ManufacturerData", {})
+        serv_data = props.get("ServiceData", {})
+        return AdvertisementData(name, uuids, man_data, serv_data)
 
-    def get_services(self):
+    def get_services(self) -> List[ServiceData]:
         peripheral = self._connect()
         if peripheral is None:
             return None
-        services_list = peripheral.getServices()
-        self.print_services(services_list)
+        services_list: List[ServiceData] = peripheral.getServices()
+        ServiceData.print_services(services_list)
         return services_list
 
     @synchronized
@@ -225,7 +230,9 @@ class BleakConnector(AbstractConnector):
     def read_characteristic(self, handle):
         if self._peripheral is None:
             raise InvalidStateError("not connected")
-        return self._peripheral.readCharacteristic(handle)
+        value = self._peripheral.readCharacteristic(handle)
+        # _LOGGER.info(f"bleak received value {value} from handler {handle}")
+        return value
 
     @synchronized
     def subscribe_for_notification(self, handle, callback):

@@ -5,6 +5,7 @@
 #
 
 import logging
+from typing import List
 import pprint
 
 import dbus.service
@@ -12,6 +13,7 @@ import dbus.service
 from btgattmitm.constants import DBUS_OM_IFACE, DBUS_PROP_IFACE
 from btgattmitm.constants import GATT_SERVICE_IFACE
 from btgattmitm.dbusobject.exception import InvalidArgsException
+from btgattmitm.dbusobject.characteristic import Characteristic
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -25,7 +27,7 @@ class Service(dbus.service.Object):
         self.bus = bus
         self.uuid = uuid
         self.primary = primary
-        self.characteristics = []
+        self.characteristics: List[Characteristic] = []
         dbus.service.Object.__init__(self, bus, self.path)
 
     def get_properties(self):
@@ -44,7 +46,7 @@ class Service(dbus.service.Object):
         #         print( "returning path:", path )
         return path
 
-    def add_characteristic(self, characteristic):
+    def add_characteristic(self, characteristic: Characteristic):
         self.characteristics.append(characteristic)
 
     def get_characteristic_paths(self):

@@ -147,7 +147,7 @@ class BluepyConnector(btle.DefaultDelegate, AbstractConnector):
         if peripheral is None:
             return None
         services_list = get_services_data(peripheral)
-        self.print_services(services_list)
+        ServiceData.print_services(services_list)
         return services_list
 
     @synchronized

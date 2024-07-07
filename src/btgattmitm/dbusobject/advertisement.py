@@ -40,26 +40,33 @@ class Advertisement(dbus.service.Object):
         _LOGGER.debug("Getting advertisement properties")
 
         properties = {}
-        properties["Type"] = self.ad_type
+        properties["Type"] = dbus.String(self.ad_type)
         properties["Discoverable"] = dbus.Boolean(self.discoverable)
-        # properties["SupportedIncludes"] = dbus.Array(["tx-power"], signature="s")
+
+        if self.local_name is not None:
+            properties["LocalName"] = dbus.String(self.local_name)
+
+        if self.include_tx_power:
+            properties["Includes"] = dbus.Array(["tx-power"], signature="s")
 
         if self.service_uuids is not None:
             properties["ServiceUUIDs"] = dbus.Array(self.service_uuids, signature="s")
+
         if self.solicit_uuids is not None:
             properties["SolicitUUIDs"] = dbus.Array(self.solicit_uuids, signature="s")
+
         if self.manufacturer_data is not None:
-            properties["ManufacturerData"] = dbus.Dictionary(self.manufacturer_data, signature="qv")
+            man_data = {}
+            for man_key, man_val in self.manufacturer_data.items():
+                man_data[man_key] = dbus.Array(man_val, signature="y")
+            properties["ManufacturerData"] = dbus.Dictionary(man_data, signature="qv")
+
         if self.service_data is not None:
-            properties["ServiceData"] = dbus.Dictionary(self.service_data, signature="sv")
-            # properties["ServiceData"] = self.service_data
-            ##properties['ServiceData'] = dbus.Dictionary(self.service_data, signature='say')
-        if self.local_name is not None:
-            properties["LocalName"] = self.local_name
-        # if self.include_tx_power is not None:
-        #     properties["IncludeTxPower"] = dbus.Boolean(self.include_tx_power)
-        if self.include_tx_power:
-            properties["Includes"] = dbus.Array(["tx-power"], signature="s")
+            serv_data = {}
+            for serv_key, serv_val in self.service_data.items():
+                serv_data[serv_key] = dbus.Array(serv_val, signature="y")
+            properties["ServiceData"] = dbus.Dictionary(serv_data, signature="sv")
+
         if self.data is not None:
             properties["Data"] = self.data
 
@@ -67,6 +74,11 @@ class Advertisement(dbus.service.Object):
 
     def get_path(self):
         return dbus.ObjectPath(self.path)
+
+    def set_service_uuid_list(self, uuid_list):
+        self.service_uuids = []
+        for item in uuid_list:
+            self.add_service_uuid(item)
 
     def add_service_uuid(self, uuid):
         if not self.service_uuids:
@@ -89,7 +101,7 @@ class Advertisement(dbus.service.Object):
             self.manufacturer_data = {}
         _LOGGER.debug("Adding manufacturer data: %s %s", manuf_code, data)
         # self.manufacturer_data[manuf_code] = data
-        self.manufacturer_data[manuf_code] = dbus.Array(data, signature="y")
+        self.manufacturer_data[manuf_code] = data
 
     def add_manufacturer_data_dict(self, data_dict):
         for key, data in data_dict.items():
@@ -99,17 +111,19 @@ class Advertisement(dbus.service.Object):
         if not self.service_data:
             self.service_data = {}
         _LOGGER.debug("Adding service data: %s %s", uuid, data)
-        self.service_data[str(uuid)] = dbus.Array(data, signature="y")
+        self.service_data[str(uuid)] = data
 
     def add_service_data_dict(self, data_dict):
         for key, data in data_dict.items():
             self.add_service_data(key, data)
 
     def set_local_name(self, name):
+        if name is None:
+            return
         if not self.local_name:
             self.local_name = ""
-        _LOGGER.debug("Adding local name: %s", name)
-        self.local_name = dbus.String(name)
+        _LOGGER.debug("Setting local name: %s", name)
+        self.local_name = name
 
     def add_data(self, ad_type, data):
         if not self.data:
@@ -137,10 +151,8 @@ class Advertisement(dbus.service.Object):
 class AdvertisementManager(Advertisement):
     def __init__(self, bus, index):
         Advertisement.__init__(self, bus, index, "peripheral")
-        self.set_local_name("BLE-MITM")
 
         self.include_tx_power = True
-
         self.register_completed = False
         self.manager_iface = None
 
@@ -159,7 +171,7 @@ class AdvertisementManager(Advertisement):
         if self.manager_iface is None:
             return
         adPath = self.get_path()
-        _LOGGER.error("Registering advertisement: %s", adPath)
+        _LOGGER.info("Registering advertisement: %s", adPath)
         self.manager_iface.RegisterAdvertisement(
             adPath, {}, reply_handler=self._register_ad_cb, error_handler=self._register_ad_error_cb
         )

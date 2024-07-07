@@ -23,6 +23,7 @@
 #
 
 import logging
+from typing import List, Any, Dict
 
 from time import sleep
 from threading import Thread
@@ -34,12 +35,32 @@ _LOGGER = logging.getLogger(__name__)
 # =====================================================
 
 
+class AdvertisementData:
+    def __init__(self, name: str, uuids: List[str], manufacturer_data: Dict[int, Any], service_data: Dict[str, str]):
+        self.name = name
+        self.uuids = uuids
+        self.manufacturer_data = manufacturer_data
+        self.service_data = service_data
+
+    def get_dict(self):
+        ret_data = {}
+        if self.name:
+            ret_data["LocalName"] = self.name
+        if self.uuids:
+            ret_data["ServiceUUIDs"] = self.uuids
+        if self.manufacturer_data:
+            ret_data["ManufacturerData"] = self.manufacturer_data
+        if self.service_data:
+            ret_data["ServiceData"] = self.service_data
+        return ret_data
+
+
 class CharacteristicData:
     def __init__(self, char_uuid, char_name, char_handle, char_props):
         self._uuid = char_uuid
         self._common_name = char_name
         self._handle = char_handle
-        self._props_list = char_props
+        self._props_list: List[str] = char_props
 
     @property
     def uuid(self):
@@ -57,12 +78,21 @@ class CharacteristicData:
     def getHandle(self):
         return self._handle
 
+    def get_data(self):
+        ret_data = {}
+        ret_data["name"] = self._common_name
+        ret_data["uuid"] = self._uuid
+        ret_data["handle"] = self._handle
+        ret_data["properties"] = self._props_list
+        ret_data["value"] = 0
+        return ret_data
+
 
 class ServiceData:
     def __init__(self, service_uuid, service_name=None):
         self._uuid = service_uuid
         self._common_name = service_name
-        self._chars_list = []
+        self._chars_list: List[CharacteristicData] = []
 
     @property
     def uuid(self):
@@ -73,12 +103,25 @@ class ServiceData:
             return self.uuid
         return self._common_name
 
-    def getCharacteristics(self):
+    def getCharacteristics(self) -> List[CharacteristicData]:
         return self._chars_list
 
+    # handle: int, example: 61
+    # properties: List[str], example: ["write-without-response", "write"]
     def add_characteristic(self, char_uuid, char_name, char_handle, char_props):
         char_data = CharacteristicData(char_uuid, char_name, char_handle, char_props)
         self._chars_list.append(char_data)
+
+    def get_data(self):
+        ret_data = {}
+        ret_data["name"] = self._common_name
+        ret_data["uuid"] = self._uuid
+        characteristic_data = {}
+        # char_item: CharacteristicData
+        for char_item in self._chars_list:
+            characteristic_data[char_item.uuid] = char_item.get_data()
+        ret_data["characteristics"] = characteristic_data
+        return ret_data
 
     def print_data(self):
         _LOGGER.debug("Service: %s [%s]", self.uuid, self.getCommonName())
@@ -92,11 +135,63 @@ class ServiceData:
                 char_item.properties,
             )
 
+    @staticmethod
+    def print_services(serv_list: "List[ServiceData]"):
+        if not serv_list:
+            _LOGGER.debug("no services")
+            return
+        _LOGGER.debug("Found services:")
+        for serv in serv_list:
+            serv.print_data()
+
+    @staticmethod
+    def dump_config(serv_list: "List[ServiceData]"):
+        if not serv_list:
+            return {}
+        ret_data = {}
+        # serv: ServiceData
+        for serv in serv_list:
+            ret_data[serv.uuid] = serv.get_data()
+        return ret_data
+
+    @staticmethod
+    def prepare_from_config(serv_cfg_list) -> "List[ServiceData]":
+        ret_list: List[ServiceData] = []
+        for serv_cfg in serv_cfg_list:
+            serv_uuid = serv_cfg.get("uuid")
+            serv_name = serv_cfg.get("name")
+            serv = ServiceData(serv_uuid, serv_name)
+            chars_cfg_list = serv_cfg.get("characteristics", [])
+            for char_cfg in chars_cfg_list.values():
+                char_uuid = char_cfg.get("uuid")
+                char_name = char_cfg.get("name")
+                char_handle = char_cfg.get("handle")
+                char_props = char_cfg.get("properties")
+                serv.add_characteristic(char_uuid, char_name, char_handle, char_props)
+            ret_list.append(serv)
+        return ret_list
+
 
 # =====================================================
 
 
-class AbstractConnector:
+class ServiceConnector:
+
+    def read_characteristic(self, handle):
+        raise NotImplementedError()
+
+    def write_characteristic(self, handle, val):
+        raise NotImplementedError()
+
+    def subscribe_for_notification(self, handle, callback):
+        raise NotImplementedError()
+
+    def unsubscribe_from_notification(self, handle, callback):
+        raise NotImplementedError()
+
+
+class AbstractConnector(ServiceConnector):
+
     def is_connected(self) -> bool:
         raise NotImplementedError()
 
@@ -106,10 +201,10 @@ class AbstractConnector:
     def disconnect(self):
         raise NotImplementedError()
 
-    def get_device_properties(self):
+    def get_device_properties(self) -> AdvertisementData:
         raise NotImplementedError()
 
-    def get_services(self):
+    def get_services(self) -> List[ServiceData]:
         raise NotImplementedError()
 
     def read_characteristic(self, handle):
@@ -126,14 +221,6 @@ class AbstractConnector:
 
     def process_notifications(self):
         raise NotImplementedError()
-
-    def print_services(self, serv_list):
-        if not serv_list:
-            _LOGGER.debug("no services")
-            return
-        _LOGGER.debug("Found services:")
-        for serv in serv_list:
-            serv.print_data()
 
 
 # =====================================================
