@@ -87,8 +87,7 @@ def configure_logger(logFile):
     bleak_logger.setLevel(logging.INFO)
 
 
-def start_mitm(btServiceAddress, listenMode, bt_name, bt_service_uuids,
-               deviceconfig_path, dumpdevice_path):
+def start_mitm(btServiceAddress, listenMode, bt_name, bt_service_uuids, deviceconfig_path, dumpdevice_path):
     connection = None
     device = None
     try:
@@ -157,9 +156,13 @@ def start_mitm(btServiceAddress, listenMode, bt_name, bt_service_uuids,
 def main():
     parser = argparse.ArgumentParser(description="Bluetooth GATT MITM")
     parser.add_argument("--connect", action="store", required=False, help="BT address to connect to")
-    parser.add_argument("--bt-name", action="store", required=False, help="Device name to advertise")
+    parser.add_argument("--bt-name", action="store", required=False, help="Device name to advertise (override device)")
     parser.add_argument(
-        "--bt-service-uuids", nargs="*", action="store", required=False, help="List of service UUIDs to advertise"
+        "--bt-service-uuids",
+        nargs="*",
+        action="store",
+        required=False,
+        help="List of service UUIDs to advertise (override device)",
     )
     parser.add_argument(
         "--listen",
@@ -168,8 +171,13 @@ def main():
         default=False,
         help="Automatically subscribe for all notifications from service",
     )
-    parser.add_argument("--devicefromcfg", action="store", required=False, help="Load device configuration from file")
     parser.add_argument("--dumpdevice", action="store", required=False, help="Store device configuration to file")
+    parser.add_argument(
+        "--devicefromcfg",
+        action="store",
+        required=False,
+        help="Load device configuration from file ('connect' not needed)",
+    )
 
     args = parser.parse_args()
 
@@ -186,8 +194,9 @@ def main():
     exitCode = 0
 
     try:
-        valid = start_mitm(args.connect, args.listen, args.bt_name, args.bt_service_uuids,
-                           args.devicefromcfg, args.dumpdevice)
+        valid = start_mitm(
+            args.connect, args.listen, args.bt_name, args.bt_service_uuids, args.devicefromcfg, args.dumpdevice
+        )
         if valid is False:
             exitCode = 1
 

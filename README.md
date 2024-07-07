@@ -11,12 +11,51 @@ allowing to reveal the protocol.
 
 ### Running
 
-Execute:
+Typical setup consists of BLE *server* (some third party device), BLE *client* (e.g. smartphone app) and 
+this *interceptor* application. To connect all parts perform following steps:
+1. put *server* device into pairing mode (if applicable)
+2. connect *interceptor* to the *server*
+3. run third party test app on smartphone (e.g. GATTBrowser by Renesas) to check *interceptor* and pair/bond to the PC
+4. run *client* application on the same smartphone to make requests to the *server*
+5. observe messages (logs on services) printed on *iterceptor* while using *client* application
 
-*./btgattmitm/main.py --connect=AA:BB:CC:DD:EE:FF*
+Execute example:
 
-where *AA:BB:CC:DD:EE:FF* is address of GATT service, then connect within client 
-application to created MITM service.
+`./btgattmitm/main.py --connect=AA:BB:CC:DD:EE:FF`
+
+where *AA:BB:CC:DD:EE:FF* is address of GATT service, then connect within client application to created MITM service.
+
+Some devices require pairing to be performed during first connection.
+
+Program options:
+
+<!-- insertstart include="doc/help.txt" pre="\n\n```\n" post="```\n\n" -->
+
+```
+
+usage: main.py [-h] [--connect CONNECT] [--bt-name BT_NAME]
+               [--bt-service-uuids [BT_SERVICE_UUIDS [BT_SERVICE_UUIDS ...]]]
+               [--listen] [--dumpdevice DUMPDEVICE]
+               [--devicefromcfg DEVICEFROMCFG]
+
+Bluetooth GATT MITM
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --connect CONNECT     BT address to connect to
+  --bt-name BT_NAME     Device name to advertise (override device)
+  --bt-service-uuids [BT_SERVICE_UUIDS [BT_SERVICE_UUIDS ...]]
+                        List of service UUIDs to advertise (override device)
+  --listen              Automatically subscribe for all notifications from
+                        service
+  --dumpdevice DUMPDEVICE
+                        Store device configuration to file
+  --devicefromcfg DEVICEFROMCFG
+                        Load device configuration from file ('connect' not
+                        needed)
+```
+
+<!-- insertend -->
 
 
 ### Android test apps
@@ -24,26 +63,7 @@ application to created MITM service.
 There are several Android applications allowing writing custom messages and 
 reading data from Bluetooth services. Two among them:
 - GATTBrowser by Renesas
-- BLE Tool
-
-
-## Required libraries
-- Python 3
-- Linux *python-dbus* package (1.2.6-1)
-- *bluepy* (1.3.0)
-
-
-### Issues:
-- when application is started then it is impossible to discover the MITM device --
-workaround is to directly insert address of MITM service
-- messages like *Unable to set arguments (dbus.ObjectPath('/org/bluez/example/service0'), {}) according to signature None: <type 'exceptions.ValueError'>: Unable to guess signature from an empty dict
-* mean your bluepy library is *old* compared to DBus client
-
-
-### Use example of:
-- dbus with threads
-- bluez library
-- defining method decorators (*synchronied.py*)
+- nRF Connect (Nordic Semiconductor)
 
 
 ### ToDo:

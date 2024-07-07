@@ -1,0 +1,21 @@
+
+usage: main.py [-h] [--connect CONNECT] [--bt-name BT_NAME]
+               [--bt-service-uuids [BT_SERVICE_UUIDS [BT_SERVICE_UUIDS ...]]]
+               [--listen] [--dumpdevice DUMPDEVICE]
+               [--devicefromcfg DEVICEFROMCFG]
+
+Bluetooth GATT MITM
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --connect CONNECT     BT address to connect to
+  --bt-name BT_NAME     Device name to advertise (override device)
+  --bt-service-uuids [BT_SERVICE_UUIDS [BT_SERVICE_UUIDS ...]]
+                        List of service UUIDs to advertise (override device)
+  --listen              Automatically subscribe for all notifications from
+                        service
+  --dumpdevice DUMPDEVICE
+                        Store device configuration to file
+  --devicefromcfg DEVICEFROMCFG
+                        Load device configuration from file ('connect' not
+                        needed)
