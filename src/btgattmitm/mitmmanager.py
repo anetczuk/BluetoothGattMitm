@@ -5,7 +5,6 @@
 #
 
 import logging
-from typing import List
 
 from gi.repository import GObject
 
@@ -15,8 +14,9 @@ from gi.repository import GObject
 import dbus.mainloop.glib
 
 from btgattmitm.dbusobject.advertisement import AdvertisementManager
-from btgattmitm.connector import NotificationHandler, AbstractConnector, ServiceData, AdvertisementData
+from btgattmitm.connector import NotificationHandler, AbstractConnector, AdvertisementData
 from btgattmitm.gattmock import ApplicationMock
+
 # from btgattmitm.dbusobject.agent import AgentManager
 
 
@@ -24,15 +24,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class MitmManager:
-    """
-    classdocs
-    """
-
     def __init__(self):
-        """
-        MITM manager
-        """
-
         ## required for Python threading to work
         GObject.threads_init()
         dbus.mainloop.glib.threads_init()
@@ -55,7 +47,6 @@ class MitmManager:
 
     def configure_clone(self, connector: AbstractConnector, listenMode):
         """Configure service by cloning BT device."""
-
         _LOGGER.debug("Configuring MITM")
         if self.gatt_application is not None:
             valid = self.gatt_application.clone_services(connector, listenMode)
@@ -66,8 +57,11 @@ class MitmManager:
         ## register advertisement
         if self.advertisement is not None:
             adv_props: AdvertisementData = connector.get_device_properties()
-            adv_dict = adv_props.get_dict()
-            self._configure_advertisement(adv_dict)
+            if adv_props is not None:
+                adv_dict = adv_props.get_dict()
+                self._configure_advertisement(adv_dict)
+            else:
+                _LOGGER.debug("Unable to configure advertisement - missing device properties")
 
         if self._notificationHandler is not None:
             self._notificationHandler.stop()
@@ -77,7 +71,6 @@ class MitmManager:
 
     def configure_config(self, device_config):
         """Configure service based on config dict."""
-
         _LOGGER.debug("Configuring device by config")
         if self.gatt_application is not None:
             services_dict = device_config.get("services", {})

@@ -18,7 +18,7 @@ _LOGGER = logging.getLogger(__name__)
 
 logger = logging.getLogger("edl_agent")
 logger.setLevel(logging.DEBUG)
-handler = logging.handlers.SysLogHandler(address="/dev/log")
+handler = logging.handlers.SysLogHandler(address="/dev/log")  # type: ignore
 logger.addHandler(handler)
 
 
@@ -41,13 +41,17 @@ class Rejected(dbus.DBusException):
 
 
 class Agent(dbus.service.Object):
+    def __init__(self, bus, path):
+        super().__init__(bus, path)
+        self.bus = bus
+
     @dbus.service.method(AGENT_INTERFACE, in_signature="", out_signature="")
     def Release(self):
         _LOGGER.debug("Release")
 
     @dbus.service.method(AGENT_INTERFACE, in_signature="os", out_signature="")
     def AuthorizeService(self, device, uuid):
-        _LOGGER.debug("AuthorizeService (%s, %s)" % (device, uuid))
+        _LOGGER.debug("AuthorizeService (%s, %s)", device, uuid)
         authorize = "yes"  # ask("Authorize connection (yes/no): ")
         if authorize == "yes":
             return
@@ -55,28 +59,28 @@ class Agent(dbus.service.Object):
 
     @dbus.service.method(AGENT_INTERFACE, in_signature="o", out_signature="s")
     def RequestPinCode(self, device):
-        _LOGGER.debug("RequestPinCode (%s)" % (device))
+        _LOGGER.debug("RequestPinCode (%s)", device)
         self._set_trusted(device)
         return "0000"  # ask("Enter PIN Code: ")
 
     @dbus.service.method(AGENT_INTERFACE, in_signature="o", out_signature="u")
     def RequestPasskey(self, device):
-        _LOGGER.debug("RequestPasskey (%s)" % (device))
+        _LOGGER.debug("RequestPasskey (%s)", device)
         self._set_trusted(device)
         passkey = "0000"  # ask("Enter passkey: ")
         return dbus.UInt32(passkey)
 
     @dbus.service.method(AGENT_INTERFACE, in_signature="ouq", out_signature="")
     def DisplayPasskey(self, device, passkey, entered):
-        _LOGGER.debug("DisplayPasskey (%s, %06u entered %u)" % (device, passkey, entered))
+        _LOGGER.debug("DisplayPasskey (%s, %06u entered %u)", device, passkey, entered)
 
     @dbus.service.method(AGENT_INTERFACE, in_signature="os", out_signature="")
     def DisplayPinCode(self, device, pincode):
-        _LOGGER.debug("DisplayPinCode (%s, %s)" % (device, pincode))
+        _LOGGER.debug("DisplayPinCode (%s, %s)", device, pincode)
 
     @dbus.service.method(AGENT_INTERFACE, in_signature="ou", out_signature="")
     def RequestConfirmation(self, device, passkey):
-        _LOGGER.debug("RequestConfirmation (%s, %06d)" % (device, passkey))
+        _LOGGER.debug("RequestConfirmation (%s, %06d)", device, passkey)
         confirm = "yes"  # ask("Confirm passkey (yes/no): ")
         if confirm == "yes":
             self._set_trusted(device)
@@ -85,7 +89,7 @@ class Agent(dbus.service.Object):
 
     @dbus.service.method(AGENT_INTERFACE, in_signature="o", out_signature="")
     def RequestAuthorization(self, device):
-        _LOGGER.debug("RequestAuthorization (%s)" % (device))
+        _LOGGER.debug("RequestAuthorization (%s)", device)
         auth = "yes"  # ask("Authorize? (yes/no): ")
         if auth == "yes":
             return
@@ -102,7 +106,6 @@ class Agent(dbus.service.Object):
 
 class AgentManager:
     def __init__(self, bus):
-        super().__init__()
         self.capability = "KeyboardDisplay"
         self.bus = bus
         self.agent = None
@@ -223,7 +226,9 @@ class AgentManager:
 #         obj = bus.get_object(BUS_NAME, "/org/bluez");
 #         manager = dbus.Interface(obj, "org.bluez.AgentManager1")
 #
-#         #loop to handle and omit dbus.exceptions.DBusException: org.bluez.Error.AlreadyExists: Already Exists - in case user uses a GUI bluetooth-applet (that comes in GNOME, etc.) to handle pairing and connection requests... ours is not needed then
+#         #loop to handle and omit dbus.exceptions.DBusException: org.bluez.Error.AlreadyExists: Already Exists -
+#         # in case user uses a GUI bluetooth-applet (that comes in GNOME, etc.) to handle pairing and connection
+#         # requests... ours is not needed then
 #
 #         while (1):
 #             try:
@@ -235,10 +240,17 @@ class AgentManager:
 #             except dbus.exceptions.DBusException as e:
 #                 es = str(e)
 #                 if ("org.bluez.Error.AlreadyExists" in es):
-#                         printlog("edl: [Optional] User might be on a Graphical Desktop with bluetooth-applet to handle pairing and connection attempts by graphical diaglogs - so our automated agent can't register in its place (and not required) - agent registration failed with cause: "+es+" - so user can run 'killall bluetooth-applet' (or any other bluetooth pairing program like 'blueman-manager' - try do a 'ps | grep blue' to check) anytime to use our automated agent instead... waiting 15 secs to try again")
+#                         printlog("edl: [Optional] User might be on a Graphical Desktop with bluetooth-applet"
+#                                  " to handle pairing and connection attempts by graphical diaglogs"
+#                                  " - so our automated agent can't register in its place (and not required)"
+#                                  " - agent registration failed with cause: " + es +
+#                                  " - so user can run 'killall bluetooth-applet' (or any other bluetooth pairing"
+#                                  " program like 'blueman-manager' - try do a 'ps | grep blue' to check) anytime"
+#                                  " to use our automated agent instead... waiting 15 secs to try again")
 #                         time.sleep(15)
 #                 else:
-#                     raise e #this is pobably an older bluez to throw to run the older compat code in outer "except:" below
+#                     #this is pobably an older bluez to throw to run the older compat code in outer "except:" below
+#                     raise e
 #
 #         # Fix-up old style invocation (BlueZ 4)
 #         if len(args) > 0 and args[0].startswith("hci"):
@@ -277,7 +289,12 @@ class AgentManager:
 #             except dbus.exceptions.DBusException as e:
 #                 es = str(e)
 #                 if ("org.bluez.Error.AlreadyExists" in es):
-#                     printlog("edl: [Optional] User might be on a Graphical Desktop with bluetooth-applet to handle pairing and connection attempts by graphical diaglogs - so our automated agent can't register in its place (and not required) - agent registration failed with cause: "+es+" - so user can run 'killall bluetooth-applet' (or any other bluetooth pairing program like 'blueman-manager' - try do a 'ps | grep blue' to check) anytime to use our automated agent instead... waiting 15 secs to try again")
+#                     printlog("edl: [Optional] User might be on a Graphical Desktop with bluetooth-applet to handle"
+#                              " pairing and connection attempts by graphical diaglogs - so our automated agent"
+#                              " can't register in its place (and not required) - agent registration failed with"
+#                              " cause: " + es + " - so user can run 'killall bluetooth-applet' (or any other bluetooth"
+#                              " pairing program like 'blueman-manager' - try do a 'ps | grep blue' to check)"
+#                              " anytime to use our automated agent instead... waiting 15 secs to try again")
 #                 else:
 #                     printlog("edl: unexpected exception in old method agent registration: "+es)
 #                 time.sleep(15)

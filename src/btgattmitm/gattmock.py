@@ -47,26 +47,17 @@ def to_hex_string(data):
 
 
 class CharacteristicMock(Characteristic):
-    """
-    classdocs
-    """
-
-    def __init__(self, btCharacteristic: CharacteristicData, bus, index, service, connector: ServiceConnector, listenMode):
-        """
-        Characteristic
-        """
+    def __init__(
+        self, btCharacteristic: CharacteristicData, bus, index, service, connector: ServiceConnector, listenMode
+    ):
         self.connector: ServiceConnector = connector
         self.cHandler = btCharacteristic.getHandle()
 
         btUuid = btCharacteristic.uuid
         self.chUuid = str(btUuid)
 
-        _LOGGER.debug(
-            "Creating characteristic: %s[%s] %s",
-            self.chUuid,
-            btCharacteristic.getCommonName(),
-            "0x{:02X}".format(self.cHandler),
-        )
+        handler_hex = "0x{:02X}".format(self.cHandler)
+        _LOGGER.debug(f"Creating characteristic: {self.chUuid}[{btCharacteristic.getCommonName()}] {handler_hex}")
 
         flags = btCharacteristic.properties
         # flags = self._get_flags(btCharacteristic)
@@ -132,14 +123,7 @@ class CharacteristicMock(Characteristic):
 
 
 class ServiceMock(Service):
-    """
-    classdocs
-    """
-
     def __init__(self, btService: ServiceData, bus, index, connector: ServiceConnector, listenMode):
-        """
-        Service
-        """
         btUuid = btService.uuid
         serviceUuid = str(btUuid)
 
@@ -165,10 +149,7 @@ class ServiceMock(Service):
 
 
 class BatteryService(Service):
-    """
-    Fake Battery service that emulates a draining battery.
-
-    """
+    """Fake Battery service that emulates a draining battery."""
 
     BATTERY_UUID = "180f"
 
@@ -179,9 +160,10 @@ class BatteryService(Service):
 
 class BatteryLevelCharacteristic(Characteristic):
     """
-    Fake Battery Level characteristic. The battery level is drained by 2 points
-    every 5 seconds.
+    Fake Battery Level characteristic.
 
+    The battery level is drained by 2 points
+    every 5 seconds.
     """
 
     BATTERY_LVL_UUID = "2a19"
@@ -232,14 +214,13 @@ class BatteryLevelCharacteristic(Characteristic):
 
 
 class ConfigConnector(ServiceConnector):
-    
     def __init__(self, config_list):
         self.config_list = config_list
         self.value_dict = {}
         # read values
         for service_item in self.config_list:
             chars_list = service_item.get("characteristics")
-            for char_uuid, char_item in chars_list.items():
+            for _, char_item in chars_list.items():
                 char_handle = char_item.get("handle")
                 self.value_dict[char_handle] = char_item.get("value")
 
@@ -268,14 +249,7 @@ class ConfigConnector(ServiceConnector):
 
 
 class ApplicationMock(Application):
-    """
-    classdocs
-    """
-
     def __init__(self, bus):
-        """
-        Application
-        """
         self.bus = bus
         self.gattManager = None
 
@@ -370,5 +344,5 @@ class ApplicationMock(Application):
         _LOGGER.info("Application registered")
 
     def register_app_error_cb(self, error):
-        _LOGGER.error("Failed to register application: " + str(error))
+        _LOGGER.error("Failed to register application: %s", str(error))
         ##mainloop.quit()

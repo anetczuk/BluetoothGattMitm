@@ -24,13 +24,10 @@
 #
 
 import sys
-import time
 import argparse
 import logging
-import pprint
 
 import asyncio
-import bleak
 from bleak import BleakClient, BleakScanner
 
 

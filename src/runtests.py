@@ -29,7 +29,7 @@ import os
 import unittest
 import argparse
 import cProfile
-import subprocess
+import subprocess  # nosec
 
 try:
     import coverage
@@ -122,7 +122,7 @@ if __name__ == "__main__":
             if profiler_outfile is not None:
                 ##pyprof2calltree -i $PROF_FILE -k
                 print("Launching: pyprof2calltree -i {} -k".format(profiler_outfile))
-                subprocess.call(["pyprof2calltree", "-i", profiler_outfile, "-k"])
+                subprocess.call(["pyprof2calltree", "-i", profiler_outfile, "-k"])  # nosec
 
         ## prepare coverage results
         if coverageData is not None:

@@ -67,15 +67,18 @@ class Characteristic(dbus.service.Object):
         if interface != GATT_CHRC_IFACE:
             raise InvalidArgsException()
 
-        props = self.get_properties[GATT_CHRC_IFACE]
+        props_dict = self.get_properties()
+        props = props_dict[GATT_CHRC_IFACE]
         #         print( "returning props:", props )
         return props
 
     ### called on read request from connected device
     # @dbus.service.method(GATT_CHRC_IFACE, out_signature="ay")
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="a{sv}", out_signature="ay")
-    def ReadValue(self, options):
+    def ReadValue(self, _):
+        # def ReadValue(self, options):
         try:
+            # pylint: disable=E1111
             value = self.readValueHandler()
             # value = self._wrap(value)
             # _LOGGER.debug("Sending data to client: %s", repr(value))
@@ -87,7 +90,8 @@ class Characteristic(dbus.service.Object):
     ### called when connected device send something to characteristic
     # @dbus.service.method(GATT_CHRC_IFACE, in_signature="ay")
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="aya{sv}")
-    def WriteValue(self, value, options):
+    def WriteValue(self, value, _):
+        # def WriteValue(self, value, options):
         try:
             # _LOGGER.debug("Received data from client: %s", repr(value))
             # value = self._unwrap(value)
@@ -122,7 +126,8 @@ class Characteristic(dbus.service.Object):
         _LOGGER.debug("Default ReadValue called, returning error")
         raise NotSupportedException()
 
-    def writeValueHandler(self, value):
+    def writeValueHandler(self, _):
+        # def writeValueHandler(self, value):
         _LOGGER.debug("Default WriteValue called, returning error")
         raise NotSupportedException()
 

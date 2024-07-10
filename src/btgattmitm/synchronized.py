@@ -22,7 +22,9 @@
 # SOFTWARE.
 #
 """
-Implementation of method '@synchronized' decorator. it reflects functionality
+Implementation of method '@synchronized' decorator.
+
+It reflects functionality
 of 'synchronized' keyword from Java language.
 It accepts one optional argument -- name of lock field declared within object.
 

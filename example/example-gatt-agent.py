@@ -11,19 +11,19 @@
 
 from __future__ import absolute_import, print_function, unicode_literals
 
-from gi.repository import GObject
-
-import sys
 import time
+import logging
+import logging.handlers
+from optparse import OptionParser  # pylint: disable=W0402
+
 import dbus
 import dbus.service
 import dbus.mainloop.glib
-from optparse import OptionParser
 
 # import bluezutils
 
-import logging
-import logging.handlers
+from gi.repository import GObject
+
 
 logger = logging.getLogger("edl_agent")
 logger.setLevel(logging.DEBUG)
@@ -45,13 +45,13 @@ device_obj = None
 dev_path = None
 
 
-def set_trusted(path):
-    props = dbus.Interface(bus.get_object("org.bluez", path), "org.freedesktop.DBus.Properties")
+def set_trusted(item_path):
+    props = dbus.Interface(bus.get_object("org.bluez", item_path), "org.freedesktop.DBus.Properties")
     props.Set("org.bluez.Device1", "Trusted", True)
 
 
-def dev_connect(path):
-    dev = dbus.Interface(bus.get_object("org.bluez", path), "org.bluez.Device1")
+def dev_connect(item_path):
+    dev = dbus.Interface(bus.get_object("org.bluez", item_path), "org.bluez.Device1")
     dev.Connect()
 
 
@@ -216,7 +216,10 @@ if __name__ == "__main__":
         obj = bus.get_object(BUS_NAME, "/org/bluez")
         manager = dbus.Interface(obj, "org.bluez.AgentManager1")
 
-        # loop to handle and omit dbus.exceptions.DBusException: org.bluez.Error.AlreadyExists: Already Exists - in case user uses a GUI bluetooth-applet (that comes in GNOME, etc.) to handle pairing and connection requests... ours is not needed then
+        # loop to handle and omit dbus.exceptions.DBusException:
+        #    org.bluez.Error.AlreadyExists: Already Exists - in case user uses a GUI
+        #    bluetooth-applet (that comes in GNOME, etc.) to handle pairing and
+        #    connection requests... ours is not needed then
 
         while 1:
             try:
@@ -229,13 +232,19 @@ if __name__ == "__main__":
                 es = str(e)
                 if "org.bluez.Error.AlreadyExists" in es:
                     printlog(
-                        "edl: [Optional] User might be on a Graphical Desktop with bluetooth-applet to handle pairing and connection attempts by graphical diaglogs - so our automated agent can't register in its place (and not required) - agent registration failed with cause: "
+                        "edl: [Optional] User might be on a Graphical Desktop with bluetooth-applet"
+                        " to handle pairing and connection attempts by graphical diaglogs"
+                        " - so our automated agent can't register in its place (and not required)"
+                        " - agent registration failed with cause: "
                         + es
-                        + " - so user can run 'killall bluetooth-applet' (or any other bluetooth pairing program like 'blueman-manager' - try do a 'ps | grep blue' to check) anytime to use our automated agent instead... waiting 15 secs to try again"
+                        + " - so user can run 'killall bluetooth-applet' (or any other bluetooth pairing"
+                        " program like 'blueman-manager' - try do a 'ps | grep blue' to check) anytime"
+                        " to use our automated agent instead... waiting 15 secs to try again"
                     )
                     time.sleep(15)
                 else:
-                    raise e  # this is pobably an older bluez to throw to run the older compat code in outer "except:" below
+                    # this is pobably an older bluez to throw to run the older compat code in outer "except:" below
+                    raise e
 
         # Fix-up old style invocation (BlueZ 4)
         if len(args) > 0 and args[0].startswith("hci"):
@@ -253,7 +262,7 @@ if __name__ == "__main__":
         # else:
         #     manager.RequestDefaultAgent(path)
         manager.RequestDefaultAgent(path)
-    except:  # noqa
+    except Exception:  # noqa    # pylint: disable=W0703
         printlog("edl: this is probably an older bluez version - trying old compat code...")
         # try older bluez 4.98 compat code
         manager = dbus.Interface(bus.get_object("org.bluez", "/"), "org.bluez.Manager")
@@ -273,9 +282,13 @@ if __name__ == "__main__":
                 es = str(e)
                 if "org.bluez.Error.AlreadyExists" in es:
                     printlog(
-                        "edl: [Optional] User might be on a Graphical Desktop with bluetooth-applet to handle pairing and connection attempts by graphical diaglogs - so our automated agent can't register in its place (and not required) - agent registration failed with cause: "
+                        "edl: [Optional] User might be on a Graphical Desktop with bluetooth-applet to handle"
+                        " pairing and connection attempts by graphical diaglogs - so our automated agent"
+                        " can't register in its place (and not required) - agent registration failed with cause: "
                         + es
-                        + " - so user can run 'killall bluetooth-applet' (or any other bluetooth pairing program like 'blueman-manager' - try do a 'ps | grep blue' to check) anytime to use our automated agent instead... waiting 15 secs to try again"
+                        + " - so user can run 'killall bluetooth-applet' (or any other bluetooth pairing program"
+                        " like 'blueman-manager' - try do a 'ps | grep blue' to check) anytime to use our automated"
+                        " agent instead... waiting 15 secs to try again"
                     )
                 else:
                     printlog("edl: unexpected exception in old method agent registration: " + es)

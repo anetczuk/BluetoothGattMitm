@@ -23,7 +23,7 @@ class DataIOTest(unittest.TestCase):
         input_data = bytearray([1, 2, 3])
         out = dataio.dump(input_data)
         # self.assertEqual("""!!python/object/apply:builtins.bytearray\n- "\\x01\\x02\\x03"\n- latin-1\n""", out)
-        
+
         restored_data = dataio.load(out)
         self.assertEqual(input_data, restored_data)
 
@@ -31,7 +31,7 @@ class DataIOTest(unittest.TestCase):
         input_data = {1: "aaa", 2: "bbb"}
         out = dataio.dump(input_data)
         # self.assertEqual("""1: aaa\n2: bbb\n""", out)
-        
+
         restored_data = dataio.load(out)
         self.assertEqual(input_data, restored_data)
 
@@ -39,6 +39,6 @@ class DataIOTest(unittest.TestCase):
         input_data = {"aaa": {2: "bbb"}}
         out = dataio.dump(input_data)
         # self.assertEqual("""aaa:\n  2: bbb\n""", out)
-        
+
         restored_data = dataio.load(out)
         self.assertEqual(input_data, restored_data)

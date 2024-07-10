@@ -9,7 +9,8 @@ import yaml
 _LOGGER = logging.getLogger(__name__)
 
 
-def bytearray_constructor(loader, node):
+def bytearray_constructor(_, node):
+    # def bytearray_constructor(loader, node):
     node_values = node.value
     value = node_values[0].value
     encoding = node_values[1].value
@@ -17,7 +18,7 @@ def bytearray_constructor(loader, node):
 
 
 # fix bytearray deserialization error
-yaml.add_constructor('tag:yaml.org,2002:python/object/apply:builtins.bytearray', bytearray_constructor)
+yaml.add_constructor("tag:yaml.org,2002:python/object/apply:builtins.bytearray", bytearray_constructor)
 
 
 # ===================================================
@@ -37,5 +38,5 @@ def load(json_content):
 
 
 def load_from(config_path):
-    with open(config_path) as data_file:
+    with open(config_path, encoding="utf-8") as data_file:
         return yaml.full_load(data_file)

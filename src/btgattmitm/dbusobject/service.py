@@ -65,7 +65,8 @@ class Service(dbus.service.Object):
         if interface != GATT_SERVICE_IFACE:
             raise InvalidArgsException()
 
-        props = self.get_properties[GATT_SERVICE_IFACE]
+        props_dict = self.get_properties()
+        props = props_dict[GATT_SERVICE_IFACE]
         _LOGGER.info("returning service props:\n%s", pprint.pformat(props))
         return props
 

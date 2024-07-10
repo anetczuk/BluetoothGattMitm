@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 
 """
-Service Explorer
-----------------
+Service Explorer.
 
 An example showing how to access and print out the services, characteristics and
 descriptors of a connected GATT server.
 
 Created on 2019-03-25 by hbldh <henrik.blidh@nedomkull.com>
-
 """
 
 import argparse
@@ -47,7 +45,7 @@ async def main(args: argparse.Namespace):
                     try:
                         value = await client.read_gatt_char(char.uuid)
                         extra = f", Value: {value}"
-                    except Exception as e:
+                    except Exception as e:  # pylint: disable=W0703
                         extra = f", Error: {e}"
                 else:
                     extra = ""
@@ -61,7 +59,7 @@ async def main(args: argparse.Namespace):
                     try:
                         value = await client.read_gatt_descriptor(descriptor.handle)
                         logger.info("    [Descriptor] %s, Value: %r", descriptor, value)
-                    except Exception as e:
+                    except Exception as e:  # pylint: disable=W0703
                         logger.error("    [Descriptor] %s, Error: %s", descriptor, e)
 
         logger.info("disconnecting...")
@@ -89,9 +87,9 @@ if __name__ == "__main__":
 
     parser.add_argument("-d", "--debug", action="store_true", help="sets the log level to debug")
 
-    args = parser.parse_args()
+    parsed_args = parser.parse_args()
 
-    log_level = logging.DEBUG if args.debug else logging.INFO
+    log_level = logging.DEBUG if parsed_args.debug else logging.INFO
     logging.basicConfig(level=log_level, format="%(asctime)-15s %(name)-8s %(levelname)s: %(message)s")
 
-    asyncio.run(main(args))
+    asyncio.run(main(parsed_args))

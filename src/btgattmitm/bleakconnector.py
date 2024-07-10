@@ -28,11 +28,11 @@ from typing import List
 import pprint
 import asyncio
 
+from bleak import BleakClient, BleakScanner
+
 from btgattmitm.synchronized import synchronized
 from btgattmitm.dbusobject.exception import InvalidStateError
 from btgattmitm.connector import AbstractConnector, CallbackContainer, ServiceData, AdvertisementData
-
-from bleak import BleakClient, BleakScanner
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -143,14 +143,7 @@ class SyncedBleakDevice:
 
 
 class BleakConnector(AbstractConnector):
-    """
-    classdocs
-    """
-
     def __init__(self, mac):
-        """
-        Constructor
-        """
         super().__init__()
 
         self.address = mac

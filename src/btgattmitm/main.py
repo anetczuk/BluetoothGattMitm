@@ -41,10 +41,11 @@ import argparse
 import logging.handlers
 
 from btgattmitm import dataio
-from btgattmitm.connector import AbstractConnector, ServiceData
+from btgattmitm.connector import AbstractConnector
+
+from btgattmitm.bleakconnector import BleakConnector as Connector
 
 # from btgattmitm.bluepyconnector import BluepyConnector as Connector
-from btgattmitm.bleakconnector import BleakConnector as Connector
 from btgattmitm.mitmmanager import MitmManager
 
 
@@ -97,7 +98,6 @@ def start_mitm(btServiceAddress, listenMode, bt_name, bt_service_uuids, deviceco
 
         if btServiceAddress is not None:
             connection: AbstractConnector = Connector(btServiceAddress)
-            # connection = BluepyConnector(btServiceAddress)
 
             valid_clone = device.configure_clone(connection, listenMode)
             if valid_clone is False:
@@ -134,7 +134,7 @@ def start_mitm(btServiceAddress, listenMode, bt_name, bt_service_uuids, deviceco
 
             try:
                 dataio.dump_to(device_dump_config, dumpdevice_path)
-            except Exception as exc:
+            except Exception as exc:  # pylint: disable=W0703
                 _LOGGER.error(f"unable to store config: {exc}")
                 _LOGGER.info("data:\n%s", pprint.pformat(device_dump_config))
 
@@ -189,7 +189,7 @@ def main():
     configure_logger(log_file)
 
     _LOGGER.debug("Starting the application")
-    _LOGGER.debug("Logger log file: %s" % log_file)
+    _LOGGER.debug("Logger log file: %s", log_file)
 
     exitCode = 0
 

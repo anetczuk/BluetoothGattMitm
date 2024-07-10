@@ -176,7 +176,6 @@ class ServiceData:
 
 
 class ServiceConnector:
-
     def read_characteristic(self, handle):
         raise NotImplementedError()
 
@@ -191,7 +190,6 @@ class ServiceConnector:
 
 
 class AbstractConnector(ServiceConnector):
-
     def is_connected(self) -> bool:
         raise NotImplementedError()
 

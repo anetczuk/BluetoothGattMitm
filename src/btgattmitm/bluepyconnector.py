@@ -30,7 +30,7 @@ from bluepy import btle
 
 from btgattmitm.synchronized import synchronized
 from btgattmitm.dbusobject.exception import InvalidStateError
-from btgattmitm.connector import AbstractConnector, CallbackContainer, ServiceData
+from btgattmitm.connector import AbstractConnector, CallbackContainer, ServiceData, AdvertisementData
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ FLAGS_DICT = {  # 0b00000001 : "BROADCAST",
     0b00000100: "write-without-response",
     0b00001000: "write",
     0b00010000: "notify",
-    0b00100000: "indicate"
+    0b00100000: "indicate",
     # 0b01000000 : "WRITE SIGNED",
     # 0b10000000 : "EXTENDED PROPERTIES",
 }
@@ -122,14 +122,9 @@ def get_services_data(peripheral) -> List[ServiceData]:
 
 
 class BluepyConnector(btle.DefaultDelegate, AbstractConnector):
-    """
-    classdocs
-    """
+    """Deprecated connector based on bluepy."""
 
     def __init__(self, mac):
-        """
-        Constructor
-        """
         super().__init__()
 
         self.address = mac
@@ -141,6 +136,11 @@ class BluepyConnector(btle.DefaultDelegate, AbstractConnector):
 
     def get_address(self) -> str:
         return self.address
+
+    def get_device_properties(self) -> AdvertisementData:
+        # not implemented - this operation requires additional scanning of nearby devices to
+        # get ScanEntry data
+        return None
 
     def get_services(self) -> List[ServiceData]:
         peripheral = self._connect()
