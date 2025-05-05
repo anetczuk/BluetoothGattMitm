@@ -79,3 +79,4 @@ reading data from Bluetooth services. Two among them:
 - [dbus-python binding module](https://dbus.freedesktop.org/doc/dbus-python/index.html)
 - https://ianharvey.github.io/bluepy-doc/index.html
 - https://punchthrough.com/creating-a-ble-peripheral-with-bluez/
+- [Bluetooth LE commands](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-54/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-0f07d2b9-81e3-6508-ee08-8c808e468fed)

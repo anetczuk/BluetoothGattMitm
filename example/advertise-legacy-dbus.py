@@ -78,6 +78,8 @@ class Advertisement(dbus.service.Object):
             properties["SolicitUUIDs"] = dbus.Array(self.solicit_uuids, signature="s")
         if self.manufacturer_data is not None:
             properties["ManufacturerData"] = dbus.Dictionary(self.manufacturer_data, signature="qv")
+            ## ScanResponseManufacturerData not working, because old bluepy library
+            # properties["ScanResponseManufacturerData"] = dbus.Dictionary(self.manufacturer_data, signature="qv")
         if self.service_data is not None:
             properties["ServiceData"] = dbus.Dictionary(self.service_data, signature="sv")
         if self.local_name is not None:
@@ -140,12 +142,13 @@ class Advertisement(dbus.service.Object):
 class TestAdvertisement(Advertisement):
     def __init__(self, bus, index):
         Advertisement.__init__(self, bus, index, "peripheral")
+        # Advertisement.__init__(self, bus, index, "peripheral")
         # self.add_local_name("TestAdvertisement2")
-        self.add_local_name("DESK 2256")
+        self.add_local_name("advert-example")
         # self.add_service_uuid("180D")
         # self.add_service_uuid("180F")
-        # self.add_manufacturer_data(0xFFFF, [0x00, 0x01, 0x02, 0x03])
-        # self.add_service_data("9999", [0x00, 0x01, 0x02, 0x03, 0x04])
+        self.add_manufacturer_data(0xFFFF, [0x00, 0x01, 0x02, 0x03])
+        self.add_service_data("9999", [0x00, 0x01, 0x02, 0x03, 0x04])
         # self.include_tx_power = True
         # self.add_data(0x26, [0x01, 0x01, 0x00])
 

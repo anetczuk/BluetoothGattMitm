@@ -694,7 +694,7 @@ def main():
         print("GattManager1 interface not found")
         return
 
-    adapter_props = dbus.Interface(bus.get_object(BLUEZ_SERVICE_NAME, adapter), "org.freedesktop.DBus.Properties")
+    adapter_props = dbus.Interface(bus.get_object(BLUEZ_SERVICE_NAME, adapter), DBUS_PROP_IFACE)
     adapter_props.Set("org.bluez.Adapter1", "Powered", dbus.Boolean(1))
     ad_manager = dbus.Interface(bus.get_object(BLUEZ_SERVICE_NAME, adapter), LE_ADVERTISING_MANAGER_IFACE)
     test_advertisement = TestAdvertisement(bus, 0)
