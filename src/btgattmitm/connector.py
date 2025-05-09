@@ -36,23 +36,13 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class AdvertisementData:
-    def __init__(self, name: str, uuids: List[str], manufacturer_data: Dict[int, Any], service_data: Dict[str, str]):
-        self.name = name
-        self.uuids = uuids
-        self.manufacturer_data = manufacturer_data
-        self.service_data = service_data
+    def __init__(self, props_dict: Dict[int, Any] = None):
+        if props_dict is None:
+            props_dict = {}
+        self.props_dict: Dict[int, Any] = props_dict
 
-    def get_dict(self):
-        ret_data = {}
-        if self.name:
-            ret_data["LocalName"] = self.name
-        if self.uuids:
-            ret_data["ServiceUUIDs"] = self.uuids
-        if self.manufacturer_data:
-            ret_data["ManufacturerData"] = self.manufacturer_data
-        if self.service_data:
-            ret_data["ServiceData"] = self.service_data
-        return ret_data
+    def get_props(self) -> Dict[int, Any]:
+        return self.props_dict
 
 
 class CharacteristicData:
@@ -199,7 +189,9 @@ class AbstractConnector(ServiceConnector):
     def disconnect(self):
         raise NotImplementedError()
 
-    def get_device_properties(self) -> AdvertisementData:
+    ## returns one of two AdvertisementData items
+    ## first one is advertisement data, second is scan response data
+    def get_advertisement_data(self) -> List[AdvertisementData]:
         raise NotImplementedError()
 
     def get_services(self) -> List[ServiceData]:

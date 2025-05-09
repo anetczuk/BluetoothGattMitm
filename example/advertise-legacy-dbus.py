@@ -166,9 +166,13 @@ def find_adapter(bus):
     remote_om = dbus.Interface(bus.get_object(BLUEZ_SERVICE_NAME, "/"), DBUS_OM_IFACE)
     objects = remote_om.GetManagedObjects()
 
-    for o, props in objects.items():
+    for obj, props in objects.items():
         if LE_ADVERTISING_MANAGER_IFACE in props:
-            return o
+            print("found adapter:", obj)
+
+    for obj, props in objects.items():
+        if LE_ADVERTISING_MANAGER_IFACE in props:
+            return obj
 
     return None
 

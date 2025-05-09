@@ -156,15 +156,21 @@ class BleakConnector(AbstractConnector):
     def get_address(self) -> str:
         return self.address
 
-    def get_device_properties(self) -> AdvertisementData:
+    def get_advertisement_data(self) -> List[AdvertisementData]:
         if self._peripheral is None:
             return None
-        props = self._peripheral.device_props
-        name = props.get("Name")
-        uuids = props.get("UUIDs", [])
-        man_data = props.get("ManufacturerData", {})
-        serv_data = props.get("ServiceData", {})
-        return AdvertisementData(name, uuids, man_data, serv_data)
+        bleak_props = self._peripheral.device_props
+        props = {}
+        
+        for key, val in bleak_props.items():
+            #TODO: implement
+            _LOGGER.warning("unhandled property: %s", key)
+
+        # props["LocalName"] = bleak_props.get("Name")
+        # props["ServiceUUIDs"] = bleak_props.get("UUIDs", [])
+        # props["ManufacturerData"] = bleak_props.get("ManufacturerData", {})
+        # props["ServiceData"] = bleak_props.get("ServiceData", {})
+        return [ AdvertisementData(props) ]
 
     def get_services(self) -> List[ServiceData]:
         peripheral = self._connect()
