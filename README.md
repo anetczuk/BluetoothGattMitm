@@ -33,18 +33,18 @@ Program options:
 
 ```
 
-usage: main.py [-h] [--connect CONNECT] [--bt-name BT_NAME]
-               [--bt-service-uuids [BT_SERVICE_UUIDS [BT_SERVICE_UUIDS ...]]]
-               [--listen] [--dumpdevice DUMPDEVICE]
-               [--devicefromcfg DEVICEFROMCFG]
+usage: main.py [-h] --iface IFACE [--connect CONNECT] [--bt-name BT_NAME]
+               [--bt-service-uuids [BT_SERVICE_UUIDS ...]] [--listen]
+               [--dumpdevice DUMPDEVICE] [--devicefromcfg DEVICEFROMCFG]
 
 Bluetooth GATT MITM
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
+  --iface IFACE         Interface to use (integer). Eg. for 'hci0' use 0.
   --connect CONNECT     BT address to connect to
   --bt-name BT_NAME     Device name to advertise (override device)
-  --bt-service-uuids [BT_SERVICE_UUIDS [BT_SERVICE_UUIDS ...]]
+  --bt-service-uuids [BT_SERVICE_UUIDS ...]
                         List of service UUIDs to advertise (override device)
   --listen              Automatically subscribe for all notifications from
                         service

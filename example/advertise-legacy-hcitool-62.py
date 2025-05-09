@@ -23,7 +23,7 @@
 # SOFTWARE.
 #
 
-import subprocess
+import subprocess  # nosec
 import time
 import re
 
@@ -35,7 +35,7 @@ import argparse
 class Advertiser:
 
     ## device: interface name or MAC address
-    def __init__(self, device = "hci0"):
+    def __init__(self, device="hci0"):
         self.device = device
         self.iface = None
 
@@ -45,26 +45,41 @@ class Advertiser:
                 self.iface = self._get_interface()
 
             ## disable advertisement
-            self._run_hcitool_cmd( ["0x08", "0x000A"], ["00"] )
-            
+            self._run_hcitool_cmd(["0x08", "0x000A"], ["00"])
+
             ## set advertisement parameters
-            data = [
-                "20", "00", "20", "00", "00", "00", "00", "00", "00", "00", "00", "00", "00", "07", "00"
-            ]
-            self._run_hcitool_cmd(["0x08", "0x0006"], data)            
+            data = ["20", "00", "20", "00", "00", "00", "00", "00", "00", "00", "00", "00", "00", "07", "00"]
+            self._run_hcitool_cmd(["0x08", "0x0006"], data)
 
             ## set advertisement data
             adv_data = AdvertisementData()
             ## 0x01 - Flags
-            adv_data.add_field("01", ["06"])    
+            adv_data.add_field("01", ["06"])
             ## 0x02 - Incomplete List of 16-bit Services UUIDS
-            adv_data.add_field("02", ["50", "FD"])    
+            adv_data.add_field("02", ["50", "FD"])
             ## 0x16 - Service data
-            adv_data.add_field("16", ["0x50", "0xFD", "0x41", "0x00", "0x00", "0x08", "0x63", "0x63", 
-                                      "0x71", "0x68", "0x76", "0x66", "0x6A", "0x78"])    
+            adv_data.add_field(
+                "16",
+                [
+                    "0x50",
+                    "0xFD",
+                    "0x41",
+                    "0x00",
+                    "0x00",
+                    "0x08",
+                    "0x63",
+                    "0x63",
+                    "0x71",
+                    "0x68",
+                    "0x76",
+                    "0x66",
+                    "0x6A",
+                    "0x78",
+                ],
+            )
 
             data = adv_data.get_data()
-            self._run_hcitool_cmd( ["0x08", "0x0008"], data)
+            self._run_hcitool_cmd(["0x08", "0x0008"], data)
 
             ## set scan response
             adv_data = AdvertisementData()
@@ -73,12 +88,12 @@ class Advertiser:
             ## 0x09 - device name
             if name:
                 adv_data.add_text("0x09", name)
-            
+
             data = adv_data.get_data()
-            self._run_hcitool_cmd( ["0x08", "0x0009"], data )
+            self._run_hcitool_cmd(["0x08", "0x0009"], data)
 
             ## enable advertisement
-            self._run_hcitool_cmd( ["0x08", "0x000A"], ["01"] )
+            self._run_hcitool_cmd(["0x08", "0x000A"], ["01"])
 
             print(f"Advertising as {name}")
             return True
@@ -86,15 +101,15 @@ class Advertiser:
         except subprocess.CalledProcessError as e:
             print(f"Error: {e}")
             return False
-            
-        except Exception as e:
+
+        except Exception as e:  # pylint: disable=W0718
             print(f"Unexpected error: {e}")
             return False
 
     def stop(self):
         try:
             # Stop advertising
-            subprocess.run(["sudo", "hciconfig", self.iface, "noscan"], check=True)
+            subprocess.run(["sudo", "hciconfig", self.iface, "noscan"], check=True)  # nosec
             print("Advertising stopped.")
             return True
 
@@ -102,7 +117,7 @@ class Advertiser:
             print(f"Error: {e}")
             return False
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=W0718
             print(f"Unexpected error: {e}")
             return False
 
@@ -111,15 +126,17 @@ class Advertiser:
         cmd_list = ["sudo", "hcitool", "-i", self.iface, "cmd"]
         cmd_list.extend(cmd_bytes)
         cmd_list.extend(data_list)
-        print( "executing:", " ".join(cmd_list) )
+        print("executing:", " ".join(cmd_list))
 
-        result = subprocess.run( cmd_list, 
-                                 capture_output=True,   # Capture stdout and stderr
-                                 text=True,             # Decode the output as a string
-                                 check=True )
+        result = subprocess.run(  # nosec
+            cmd_list,
+            capture_output=True,  # Capture stdout and stderr
+            text=True,  # Decode the output as a string
+            check=True,
+        )
 
         stdout = result.stdout
-        
+
         out_list = stdout.split("\n")
 
         found_line = -1
@@ -146,31 +163,33 @@ class Advertiser:
         meaning = ""
         if status == 0x00:
             meaning = "Success"
-        elif status == 0x0c:
+        elif status == 0x0C:
             meaning = "Command Disallowed"
 
         if meaning:
-            print(f"got status: {meaning} 0x{status_byte}")       
+            print(f"got status: {meaning} 0x{status_byte}")
         else:
             print(f"got status: 0x{status_byte}")
 
         return status == 0
 
     def _get_interface(self):
-        if is_mac_address(self.device) == False:
+        if is_mac_address(self.device) is False:
             ## no mac - assume interface name
             return self.device
 
         self.device = self.device.replace("-", ":")
 
         cmd_list = ["hcitool", "dev"]
-        result = subprocess.run( cmd_list, 
-                                 capture_output=True,   # Capture stdout and stderr
-                                 text=True,             # Decode the output as a string
-                                 check=True )
+        result = subprocess.run(  # nosec
+            cmd_list,
+            capture_output=True,  # Capture stdout and stderr
+            text=True,  # Decode the output as a string
+            check=True,
+        )
 
         stdout = result.stdout
-        
+
         out_list = stdout.split("\n")
         dev_lines = out_list[1:]
         if len(dev_lines) < 1:
@@ -191,15 +210,15 @@ class Advertiser:
 
 
 class AdvertisementData:
-    
+
     def __init__(self):
         self.data = []
 
     def get_data(self):
         ret_data = []
         data_len = len(self.data)
-        ret_data.append( hex(data_len) )
-        ret_data.extend( self.data )
+        ret_data.append(hex(data_len))
+        ret_data.extend(self.data)
         return ret_data
 
     def add_field_raw(self, data_string: str):
@@ -207,40 +226,40 @@ class AdvertisementData:
         type_byte = data_array[0]
         data_array = data_array[1:]
         self.add_field(type_byte, data_array)
-    
+
     def add_field(self, type_byte: str, data_array: List[str]):
         data_len = len(data_array) + 1
-        self.data.append( hex(data_len) )
-        self.data.append( type_byte )
-        self.data.extend( data_array )
-    
+        self.data.append(hex(data_len))
+        self.data.append(type_byte)
+        self.data.extend(data_array)
+
     def add_text(self, type_byte: str, data_string: str):
         hex_list = [hex(ord(c)) for c in data_string]
         self.add_field(type_byte, hex_list)
 
 
 def is_mac_address(data):
-    pattern = re.compile(r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$')
+    pattern = re.compile(r"^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$")
     return bool(pattern.match(data))
 
 
 def main():
     parser = argparse.ArgumentParser(description="Advertise legacy using hcitool")
-    parser.add_argument('iface', help="Adapter (interface) to use, e.g. hci0")
-    
+    parser.add_argument("iface", help="Adapter (interface) to use, e.g. hci0")
+
     args = parser.parse_args()
-    
+
     iface = args.iface
 
     advertiser = Advertiser(device=iface)
-    if advertiser.advertise_ble(name="TH09") == False:
+    if advertiser.advertise_ble(name="TH09") is False:
         return
 
     # Advertise for the specified duration
     duration = 30
     time.sleep(duration)
-    
-    advertiser.stop()    
+
+    advertiser.stop()
 
 
 if __name__ == "__main__":

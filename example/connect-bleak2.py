@@ -22,12 +22,12 @@ async def main(args: argparse.Namespace):
     logger.info("starting scan...")
 
     if args.address:
-        device = await BleakScanner.find_device_by_address(args.address, cb=dict(use_bdaddr=args.macos_use_bdaddr))
+        device = await BleakScanner.find_device_by_address(args.address, cb={"use_bdaddr": args.macos_use_bdaddr})
         if device is None:
             logger.error("could not find device with address '%s'", args.address)
             return
     else:
-        device = await BleakScanner.find_device_by_name(args.name, cb=dict(use_bdaddr=args.macos_use_bdaddr))
+        device = await BleakScanner.find_device_by_name(args.name, cb={"use_bdaddr": args.macos_use_bdaddr})
         if device is None:
             logger.error("could not find device with name '%s'", args.name)
             return

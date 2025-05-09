@@ -24,7 +24,7 @@
 
 import struct
 import logging
-from typing import List
+from typing import List, Dict, Any
 import pprint
 import asyncio
 
@@ -160,17 +160,17 @@ class BleakConnector(AbstractConnector):
         if self._peripheral is None:
             return None
         bleak_props = self._peripheral.device_props
-        props = {}
-        
-        for key, val in bleak_props.items():
-            #TODO: implement
+        props: Dict[int, Any] = {}
+
+        for key, _val in bleak_props.items():
+            # TODO: implement
             _LOGGER.warning("unhandled property: %s", key)
 
         # props["LocalName"] = bleak_props.get("Name")
         # props["ServiceUUIDs"] = bleak_props.get("UUIDs", [])
         # props["ManufacturerData"] = bleak_props.get("ManufacturerData", {})
         # props["ServiceData"] = bleak_props.get("ServiceData", {})
-        return [ AdvertisementData(props) ]
+        return [AdvertisementData(props)]
 
     def get_services(self) -> List[ServiceData]:
         peripheral = self._connect()

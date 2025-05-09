@@ -41,7 +41,7 @@ class MitmManager:
 
         self.gatt_application = ApplicationMock(self.bus)
 
-        #TODO: should 'iface' cmd parameter should be used here?
+        # TODO: should 'iface' cmd parameter should be used here?
         self.advertisement = AdvertisementManager(self.bus, 0)
 
         self.agent = None
@@ -107,13 +107,13 @@ class MitmManager:
         ## register advertisement
         if self.advertisement is None:
             return
-        self.advertisement.add_adv_data( adv_data )
+        self.advertisement.add_adv_data(adv_data)
 
     def _configure_scanresponse(self, scanresp_data: AdvertisementData):
         ## register advertisement
         if self.advertisement is None:
             return
-        self.advertisement.add_scanresp_data( scanresp_data )
+        self.advertisement.add_scanresp_data(scanresp_data)
 
     def configure_sample(self):
         _LOGGER.debug("Configuring sample")

@@ -6,7 +6,6 @@
 
 import logging
 import pprint
-from typing import Dict, Any
 
 import dbus.service
 
@@ -27,7 +26,7 @@ ADV_PROP_ID_TO_NAME_DICT = {
     # ?: "Data"
     9: "LocalName",
     22: "ServiceData",
-    255: "ManufacturerData"
+    255: "ManufacturerData",
 }
 
 SCANRESP_PROP_ID_TO_NAME_DICT = {
@@ -35,7 +34,7 @@ SCANRESP_PROP_ID_TO_NAME_DICT = {
     # ?: "ScanResponseSolicitUUIDs",
     # ?: "ScanResponseData"
     22: "ScanResponseServiceData",
-    255: "ScanResponseManufacturerData"
+    255: "ScanResponseManufacturerData",
 }
 
 
@@ -63,40 +62,40 @@ class Advertisement(dbus.service.Object):
             for key, data in self.adv_data.items():
                 prop_name = ADV_PROP_ID_TO_NAME_DICT.get(key)
                 if prop_name is not None:
-                    value = self._convert_prop_to_dbus( prop_name, data )
+                    value = self._convert_prop_to_dbus(prop_name, data)
                     if value is not None:
                         properties[prop_name] = value
                     continue
                 _LOGGER.warning("unhandled adv property: %s", key)
 
-            for key, data in self.scanresp_data.items():         
+            for key, data in self.scanresp_data.items():
                 prop_name = SCANRESP_PROP_ID_TO_NAME_DICT.get(key)
                 if prop_name is not None:
-                    value = self._convert_prop_to_dbus( prop_name, data )
+                    value = self._convert_prop_to_dbus(prop_name, data)
                     if value is not None:
                         properties[prop_name] = value
                     continue
                 prop_name = ADV_PROP_ID_TO_NAME_DICT.get(key)
                 if prop_name is not None:
-                    value = self._convert_prop_to_dbus( prop_name, data )
+                    value = self._convert_prop_to_dbus(prop_name, data)
                     if value is not None:
                         properties[prop_name] = value
                     continue
                 _LOGGER.warning("unhandled scanresp property: %s", key)
-    
+
             properties["Type"] = dbus.String(self.ad_type)
             properties["Discoverable"] = dbus.Boolean(self.discoverable)
-    
+
             if self.include_tx_power:
                 properties["Includes"] = dbus.Array(["tx-power"], signature="s")
 
             return {LE_ADVERTISEMENT_IFACE: properties}
 
-        except:
+        except:  # noqa
             _LOGGER.exception("unable to get dbus properties")
             raise
 
-    def _convert_prop_to_dbus( self, key, data ):
+    def _convert_prop_to_dbus(self, key, data):
         if key == "Type":
             return dbus.String(data)
         if key == "Discoverable":
@@ -117,12 +116,13 @@ class Advertisement(dbus.service.Object):
             for serv_key, serv_val in data.items():
                 serv_data[serv_key] = dbus.Array(serv_val, signature="y")
             return dbus.Dictionary(serv_data, signature="sv")
-        if key == "Data":
-            return self.data
+        # if key == "Data":
+        #     return self.data
 
         _LOGGER.warning("unhandled property: %s", key)
+        return None
 
-    def get_adv_data(self) -> AdvertisementData:       
+    def get_adv_data(self) -> AdvertisementData:
         return AdvertisementData(self.adv_data)
 
     def add_adv_data(self, adv_data: AdvertisementData):
@@ -139,7 +139,7 @@ class Advertisement(dbus.service.Object):
         self.scanresp_data = self.scanresp_data | scanresp_dict
 
     def set_service_uuid_list(self, uuid_list):
-        self.adv_data[ 0x02 ] = []
+        self.adv_data[0x02] = []
         for item in uuid_list:
             self.add_service_uuid(item)
 
@@ -147,7 +147,7 @@ class Advertisement(dbus.service.Object):
         _LOGGER.debug("Adding service uuid: %s", uuid)
         data_container = self.adv_data.get(0x02, [])
         data_container.append(uuid)
-        self.adv_data[ 0x02 ] = data_container
+        self.adv_data[0x02] = data_container
 
     def add_service_uuid_list(self, uuid_list):
         for item in uuid_list:
@@ -160,7 +160,7 @@ class Advertisement(dbus.service.Object):
     #     self.adv_data["SolicitUUIDs"] = data_container
 
     def add_manufacturer_data(self, manuf_code, data):
-        _LOGGER.debug("Adding manufacturer data: %s %s", manuf_code, data)      
+        _LOGGER.debug("Adding manufacturer data: %s %s", manuf_code, data)
         data_container = self.adv_data.get(0xFF, {})
         data_container[manuf_code] = data
         self.adv_data[0xFF] = data_container

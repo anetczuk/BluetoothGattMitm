@@ -132,7 +132,7 @@ class BluepyConnector(AbstractConnector):
         self.address = mac
         self.iface = iface
         self.callbacks = CallbackContainer()
-        self.connectDelegate = ConnectDelegate( self.callbacks )
+        self.connectDelegate = ConnectDelegate(self.callbacks)
         self._peripheral = None
 
     def is_connected(self) -> bool:
@@ -141,7 +141,7 @@ class BluepyConnector(AbstractConnector):
     def get_address(self) -> str:
         return self.address
 
-    def get_advertisement_data(self) -> List[AdvertisementData]:    
+    def get_advertisement_data(self) -> List[AdvertisementData]:
         return self._scan()
 
     @synchronized
@@ -152,7 +152,7 @@ class BluepyConnector(AbstractConnector):
         scanner.scan(10.0)
         adv_data = delegate.get_adv_data()
         scan_data = delegate.get_scan_data()
-        return [ adv_data, scan_data ]
+        return [adv_data, scan_data]
 
     def get_services(self) -> List[ServiceData]:
         peripheral = self._connect()
@@ -173,7 +173,7 @@ class BluepyConnector(AbstractConnector):
         for _try in range(0, 2):
             try:
                 conn = btle.Peripheral()
-                conn.withDelegate( self.connectDelegate )
+                conn.withDelegate(self.connectDelegate)
                 conn.connect(self.address, addrType=addrType, iface=self.iface)
                 _LOGGER.debug("connected")
                 self._peripheral = conn
@@ -270,41 +270,47 @@ class ScanDelegate(btle.DefaultDelegate):
         if self.mac_filter:
             if self.mac_filter != scanEntry.addr:
                 return
-        _LOGGER.debug("new discovery: %s RSSI=%s AddrType=%s %s %s",
-                      scanEntry.addr, scanEntry.rssi, scanEntry.addrType, isNewDev, isNewData)
+        _LOGGER.debug(
+            "new discovery: %s RSSI=%s AddrType=%s %s %s",
+            scanEntry.addr,
+            scanEntry.rssi,
+            scanEntry.addrType,
+            isNewDev,
+            isNewData,
+        )
         if isNewDev:
             ## advertisement data
-            for (adtype, desc, value) in scanEntry.getScanData():
+            for adtype, desc, value in scanEntry.getScanData():
                 _LOGGER.debug(f"  {desc} ({adtype}) = {value}")
-                ScanDelegate.append_to_dict( self.adv_dict, adtype, value )
+                ScanDelegate.append_to_dict(self.adv_dict, adtype, value)
         else:
             ## scan response data
-            for (adtype, desc, value) in scanEntry.getScanData():
+            for adtype, desc, value in scanEntry.getScanData():
                 if adtype in self.adv_dict:
                     continue
                 _LOGGER.debug(f"  {desc} ({adtype}) = {value}")
-                ScanDelegate.append_to_dict( self.scan_dict, adtype, value )
+                ScanDelegate.append_to_dict(self.scan_dict, adtype, value)
 
     @staticmethod
     def append_to_dict(data_dict, adtype, value):
-        #data_dict[ adtype ] = value
+        # data_dict[ adtype ] = value
 
         ## Flags
         if adtype == 1:
             ## store in dict
-            data_dict[ adtype ] = int(value, 16)
+            data_dict[adtype] = int(value, 16)
 
         elif adtype == 2:
             ## Incomplete 16b Services
             ## store in list
             data_container = data_dict.get(adtype, [])
-            data_container.append( value )
-            data_dict[ adtype ] = data_container
+            data_container.append(value)
+            data_dict[adtype] = data_container
 
         ## Complete Local Name
         elif adtype == 9:
             ## store in dict
-            data_dict[ adtype ] = value
+            data_dict[adtype] = value
 
         ## 16b Service Data
         elif adtype == 22:
@@ -315,7 +321,7 @@ class ScanDelegate(btle.DefaultDelegate):
             bytes_list = list(bytes.fromhex(data_str))
             data_container = data_dict.get(adtype, {})
             data_container[data_id] = bytes_list
-            data_dict[ adtype ] = data_container
+            data_dict[adtype] = data_container
 
         ## Manufacturer
         elif adtype == 255:
@@ -327,8 +333,8 @@ class ScanDelegate(btle.DefaultDelegate):
             bytes_list = list(bytes.fromhex(data_str))
             data_container = data_dict.get(adtype, {})
             data_container[data_id] = bytes_list
-            data_dict[ adtype ] = data_container            
-            
+            data_dict[adtype] = data_container
+
         else:
-            #data_dict[ adtype ] = value
+            # data_dict[ adtype ] = value
             _LOGGER.warning("unhandled adtype: %s", adtype)

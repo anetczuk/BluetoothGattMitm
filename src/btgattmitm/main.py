@@ -91,8 +91,10 @@ def configure_logger(logFile):
 ## interface: int - interface index of local device
 ## clone_device: str - mac of device to connect to
 ## listenMode: bool - should subscribe for all notifications?
-def start_mitm(interface: int, clone_device: str, listenMode, bt_name, bt_service_uuids, deviceconfig_path, dumpdevice_path):
-    connection = None
+def start_mitm(
+    interface: int, clone_device: str, listenMode, bt_name, bt_service_uuids, deviceconfig_path, dumpdevice_path
+):
+    connection: AbstractConnector = None
     device = None
     try:
         device = MitmManager()
@@ -100,8 +102,8 @@ def start_mitm(interface: int, clone_device: str, listenMode, bt_name, bt_servic
         prepare_sample = True
 
         if clone_device is not None:
-            # connection: AbstractConnector = Connector(btServiceAddress)
-            connection: AbstractConnector = Connector(clone_device, iface=interface)
+            # connection = Connector(btServiceAddress)
+            connection = Connector(clone_device, iface=interface)
 
             valid_clone = device.configure_clone(connection, listenMode)
             if valid_clone is False:
@@ -160,7 +162,9 @@ def start_mitm(interface: int, clone_device: str, listenMode, bt_name, bt_servic
 
 def main():
     parser = argparse.ArgumentParser(description="Bluetooth GATT MITM")
-    parser.add_argument("--iface", action="store", required=True, help="Interface to use (integer). Eg. for 'hci0' use 0.")
+    parser.add_argument(
+        "--iface", action="store", required=True, help="Interface to use (integer). Eg. for 'hci0' use 0."
+    )
     parser.add_argument("--connect", action="store", required=False, help="BT address to connect to")
     parser.add_argument("--bt-name", action="store", required=False, help="Device name to advertise (override device)")
     parser.add_argument(
@@ -201,8 +205,14 @@ def main():
 
     try:
         interface = int(args.iface)
-        valid = start_mitm( interface, args.connect, 
-                            args.listen, args.bt_name, args.bt_service_uuids, args.devicefromcfg, args.dumpdevice
+        valid = start_mitm(
+            interface,
+            args.connect,
+            args.listen,
+            args.bt_name,
+            args.bt_service_uuids,
+            args.devicefromcfg,
+            args.dumpdevice,
         )
         if valid is False:
             exitCode = 1
