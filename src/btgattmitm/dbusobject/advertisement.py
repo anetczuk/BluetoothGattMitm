@@ -6,6 +6,7 @@
 
 import logging
 import pprint
+from typing import List
 
 import dbus.service
 
@@ -15,26 +16,27 @@ from btgattmitm.constants import LE_ADVERTISING_MANAGER_IFACE
 from btgattmitm.find_adapter import find_advertise_adapter
 from btgattmitm.dbusobject.exception import InvalidArgsException
 from btgattmitm.connector import AdvertisementData
+from btgattmitm.advertisementmanager import AdvertisementManager
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
 ADV_PROP_ID_TO_NAME_DICT = {
-    2: "ServiceUUIDs",
-    # ?: "SolicitUUIDs",
-    # ?: "Data"
-    9: "LocalName",
-    22: "ServiceData",
-    255: "ManufacturerData",
+    0x02: "ServiceUUIDs",
+    #  ?: "SolicitUUIDs",
+    #  ?: "Data"
+    0x09: "LocalName",
+    0x16: "ServiceData",
+    0xFF: "ManufacturerData",
 }
 
 SCANRESP_PROP_ID_TO_NAME_DICT = {
-    2: "ScanResponseServiceUUIDs",
-    # ?: "ScanResponseSolicitUUIDs",
-    # ?: "ScanResponseData"
-    22: "ScanResponseServiceData",
-    255: "ScanResponseManufacturerData",
+    0x02: "ScanResponseServiceUUIDs",
+    #  ?: "ScanResponseSolicitUUIDs",
+    #  ?: "ScanResponseData"
+    0x16: "ScanResponseServiceData",
+    0xFF: "ScanResponseManufacturerData",
 }
 
 
@@ -215,39 +217,44 @@ class Advertisement(dbus.service.Object):
         _LOGGER.debug("Advertisement released")
 
 
-class AdvertisementManager(Advertisement):
-    def __init__(self, bus, index):
-        Advertisement.__init__(self, bus, index, "peripheral")
+class DBusAdvertisementManager(AdvertisementManager):
 
-        self.include_tx_power = True
+    def __init__(self, bus, index):
+        super().__init__()
+        self.adv = Advertisement(bus, index, "peripheral")
+        self.adv.include_tx_power = True
+
         self.register_completed = False
         self.manager_iface = None
 
+    ## configuration of service
     def initialize(self):
-        advertise_adapter = find_advertise_adapter(self.bus)
+        advertise_adapter = find_advertise_adapter(self.adv.bus)
         if not advertise_adapter:
             _LOGGER.error("LEAdvertisingManager1 interface not found")
             return
 
-        advertiseObj = self.bus.get_object(BLUEZ_SERVICE_NAME, advertise_adapter)
+        advertiseObj = self.adv.bus.get_object(BLUEZ_SERVICE_NAME, advertise_adapter)
         adapter_props = dbus.Interface(advertiseObj, DBUS_PROP_IFACE)
         adapter_props.Set("org.bluez.Adapter1", "Powered", dbus.Boolean(1))
         self.manager_iface = dbus.Interface(advertiseObj, LE_ADVERTISING_MANAGER_IFACE)
 
+    ## startup of service
     def register(self):
         if self.manager_iface is None:
             return
-        adPath = self.get_path()
+        adPath = self.adv.get_path()
         _LOGGER.info("Registering advertisement: %s", adPath)
         self.manager_iface.RegisterAdvertisement(
             adPath, {}, reply_handler=self._register_ad_cb, error_handler=self._register_ad_error_cb
         )
 
+    ## stop of service
     def unregister(self):
         if self.register_completed is False:
             return
         _LOGGER.error("Unregistering advertisement")
-        adPath = self.get_path()
+        adPath = self.adv.get_path()
         self.manager_iface.UnregisterAdvertisement(adPath)
 
     def _register_ad_cb(self):
@@ -257,3 +264,23 @@ class AdvertisementManager(Advertisement):
     def _register_ad_error_cb(self, error):
         _LOGGER.error("Failed to register advertisement: %s", str(error))
         self.register_completed = False
+
+    ## ======================================================
+
+    def set_local_name(self, name: str):
+        self.adv.set_local_name(name)
+
+    def set_service_uuid_list(self, service_list: List[str]):
+        self.adv.set_service_uuid_list(service_list)
+
+    def get_adv_data(self) -> AdvertisementData:
+        return self.adv.get_adv_data()
+
+    def get_scanresp_data(self) -> AdvertisementData:
+        return self.adv.get_scanresp_data()
+
+    def add_adv_data(self, adv_data: AdvertisementData):
+        self.adv.add_adv_data(adv_data)
+
+    def add_scanresp_data(self, scanresp_data: AdvertisementData):
+        self.adv.add_scanresp_data(scanresp_data)

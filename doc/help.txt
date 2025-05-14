@@ -7,7 +7,8 @@ Bluetooth GATT MITM
 
 options:
   -h, --help            show this help message and exit
-  --iface IFACE         Interface to use (integer). Eg. for 'hci0' use 0.
+  --iface IFACE         Local adapter to use: integer (eg. 0), device name
+                        (eg. hci0) or MAC address (eg. 00:11:22:33:44:55)
   --connect CONNECT     BT address to connect to
   --bt-name BT_NAME     Device name to advertise (override device)
   --bt-service-uuids [BT_SERVICE_UUIDS ...]

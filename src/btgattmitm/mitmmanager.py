@@ -14,9 +14,12 @@ from gi.repository import GObject
 # import dbus
 import dbus.mainloop.glib
 
-from btgattmitm.dbusobject.advertisement import AdvertisementManager
 from btgattmitm.connector import NotificationHandler, AbstractConnector, AdvertisementData
 from btgattmitm.gattmock import ApplicationMock
+from btgattmitm.advertisementmanager import AdvertisementManager
+
+# from btgattmitm.dbusobject.advertisement import DBusAdvertisementManager
+from btgattmitm.hcitool.advertisement import HciToolAdvertisementManager
 
 # from btgattmitm.dbusobject.agent import AgentManager
 
@@ -25,7 +28,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class MitmManager:
-    def __init__(self):
+    def __init__(self, iface_index=0, sudo_mode=False):
         ## required for Python threading to work
         GObject.threads_init()
         dbus.mainloop.glib.threads_init()
@@ -41,8 +44,8 @@ class MitmManager:
 
         self.gatt_application = ApplicationMock(self.bus)
 
-        # TODO: should 'iface' cmd parameter should be used here?
-        self.advertisement = AdvertisementManager(self.bus, 0)
+        self.advertisement: AdvertisementManager = HciToolAdvertisementManager(iface_index, sudo_mode=sudo_mode)
+        # self.advertisement: AdvertisementManager = DBusAdvertisementManager(self.bus, iface_index)
 
         self.agent = None
         # self.agent = AgentManager(self.bus)
@@ -57,9 +60,11 @@ class MitmManager:
             adv_props_list: List[AdvertisementData] = connector.get_advertisement_data()
             if adv_props_list is not None:
                 adv_data: AdvertisementData = adv_props_list[0]
+                _LOGGER.debug("Found advertisement data: %s", adv_data.get_props())
                 self._configure_advertisement(adv_data)
 
                 scanresp_data: AdvertisementData = adv_props_list[1]
+                _LOGGER.debug("Found scan response data: %s", scanresp_data.get_props())
                 self._configure_scanresponse(scanresp_data)
             else:
                 _LOGGER.debug("Unable to configure advertisement - missing device properties")
@@ -121,6 +126,7 @@ class MitmManager:
             return self.gatt_application.prepare_sample()
         return False
 
+    ## configure services and start main loop
     def start(self):
         ## register advertisement
         if self.advertisement is not None:

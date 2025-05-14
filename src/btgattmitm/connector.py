@@ -39,10 +39,30 @@ class AdvertisementData:
     def __init__(self, props_dict: Dict[int, Any] = None):
         if props_dict is None:
             props_dict = {}
+        # self.address_type = None
         self.props_dict: Dict[int, Any] = props_dict
+
+    def contains(self, key):
+        return key in self.props_dict
 
     def get_props(self) -> Dict[int, Any]:
         return self.props_dict
+
+    def get_prop(self, key, default_val=None) -> Any:
+        return self.props_dict.get(key, default_val)
+
+    def set_prop(self, key, data):
+        self.props_dict[key] = data
+
+    def merge(self, adv_data: "AdvertisementData"):
+        ## merge dicts
+        self.props_dict = self.props_dict | adv_data.props_dict
+
+    def set_name(self, name: str):
+        self.props_dict[0x09] = name
+
+    def set_service_uuid_list(self, service_list: List[str]):
+        self.props_dict[0x02] = service_list
 
 
 class CharacteristicData:

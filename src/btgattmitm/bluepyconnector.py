@@ -146,10 +146,17 @@ class BluepyConnector(AbstractConnector):
 
     @synchronized
     def _scan(self):
+        _LOGGER.info("scanning device %s advertisement data using controller: %s", self.address, self.iface)
         delegate = ScanDelegate(self.address)
         scanner = btle.Scanner(iface=self.iface)
         scanner.withDelegate(delegate)
-        scanner.scan(10.0)
+        try:
+            scanner.scan(10.0)
+        except btle.BTLEDisconnectError:
+            _LOGGER.warning("device disconnected prematurely")
+        except:
+            _LOGGER.error("exception occured while scanning devices")
+            raise
         adv_data = delegate.get_adv_data()
         scan_data = delegate.get_scan_data()
         return [adv_data, scan_data]
@@ -167,14 +174,13 @@ class BluepyConnector(AbstractConnector):
         if self._peripheral is not None:
             return self._peripheral
 
-        addrType = btle.ADDR_TYPE_PUBLIC
-        # addrType = btle.ADDR_TYPE_RANDOM
-        _LOGGER.debug(f"connecting to device {self.address} type: {addrType}")
-        for _try in range(0, 2):
+        addr_type_set = (btle.ADDR_TYPE_RANDOM, btle.ADDR_TYPE_PUBLIC)
+        for addr_type in addr_type_set:
+            _LOGGER.debug(f"connecting to device {self.address} type: {addr_type}")
             try:
                 conn = btle.Peripheral()
                 conn.withDelegate(self.connectDelegate)
-                conn.connect(self.address, addrType=addrType, iface=self.iface)
+                conn.connect(self.address, addrType=addr_type, iface=self.iface)
                 _LOGGER.debug("connected")
                 self._peripheral = conn
                 return self._peripheral
@@ -254,14 +260,14 @@ class ScanDelegate(btle.DefaultDelegate):
         if mac_filter:
             mac_filter = mac_filter.lower()
         self.mac_filter = mac_filter
-        self.adv_dict = {}
-        self.scan_dict = {}
+        self.adv_dict = AdvertisementData()
+        self.scan_dict = AdvertisementData()
 
     def get_adv_data(self) -> AdvertisementData:
-        return AdvertisementData(self.adv_dict)
+        return self.adv_dict
 
     def get_scan_data(self) -> AdvertisementData:
-        return AdvertisementData(self.scan_dict)
+        return self.scan_dict
 
     def handleNotification(self, cHandle, data):
         _LOGGER.debug("new notification: %s >%s<", cHandle, data)
@@ -269,7 +275,14 @@ class ScanDelegate(btle.DefaultDelegate):
     def handleDiscovery(self, scanEntry, isNewDev, isNewData):
         if self.mac_filter:
             if self.mac_filter != scanEntry.addr:
+                _LOGGER.debug(
+                    "new discovery: %s RSSI=%s AddrType=%s (skipping)",
+                    scanEntry.addr,
+                    scanEntry.rssi,
+                    scanEntry.addrType,
+                )
                 return
+
         _LOGGER.debug(
             "new discovery: %s RSSI=%s AddrType=%s %s %s",
             scanEntry.addr,
@@ -280,61 +293,66 @@ class ScanDelegate(btle.DefaultDelegate):
         )
         if isNewDev:
             ## advertisement data
+            # self.adv_dict.address_type = scanEntry.addrType
             for adtype, desc, value in scanEntry.getScanData():
                 _LOGGER.debug(f"  {desc} ({adtype}) = {value}")
                 ScanDelegate.append_to_dict(self.adv_dict, adtype, value)
         else:
             ## scan response data
             for adtype, desc, value in scanEntry.getScanData():
-                if adtype in self.adv_dict:
+                if self.adv_dict.contains(adtype):
                     continue
                 _LOGGER.debug(f"  {desc} ({adtype}) = {value}")
                 ScanDelegate.append_to_dict(self.scan_dict, adtype, value)
 
     @staticmethod
-    def append_to_dict(data_dict, adtype, value):
-        # data_dict[ adtype ] = value
-
+    def append_to_dict(data_dict: AdvertisementData, adtype, value):
         ## Flags
-        if adtype == 1:
+        if adtype == 0x01:
             ## store in dict
-            data_dict[adtype] = int(value, 16)
+            value = int(value, 16)
+            data_dict.set_prop(adtype, value)
 
-        elif adtype == 2:
+        elif adtype == 0x02:
             ## Incomplete 16b Services
             ## store in list
-            data_container = data_dict.get(adtype, [])
+            data_container = data_dict.get_prop(adtype, [])
             data_container.append(value)
-            data_dict[adtype] = data_container
+            data_dict.set_prop(adtype, data_container)
 
         ## Complete Local Name
-        elif adtype == 9:
+        elif adtype == 0x09:
             ## store in dict
-            data_dict[adtype] = value
+            data_dict.set_prop(adtype, value)
+
+        ## Tx Power Level
+        elif adtype == 0x0A:
+            ## store in dict
+            data_dict.set_prop(adtype, value)
 
         ## 16b Service Data
-        elif adtype == 22:
+        elif adtype == 0x16:
             ## store in dict
             data_id = value[:4]
             data_id = data_id[2:4] + data_id[0:2]
             data_str = value[4:]
             bytes_list = list(bytes.fromhex(data_str))
-            data_container = data_dict.get(adtype, {})
+            data_container = data_dict.get_prop(adtype, {})
             data_container[data_id] = bytes_list
-            data_dict[adtype] = data_container
+            data_dict.set_prop(adtype, data_container)
 
         ## Manufacturer
-        elif adtype == 255:
+        elif adtype == 0xFF:
             ## store in dict
             data_id = value[:4]
             data_id = data_id[2:4] + data_id[0:2]
             data_id = int(data_id, 16)
             data_str = value[4:]
             bytes_list = list(bytes.fromhex(data_str))
-            data_container = data_dict.get(adtype, {})
+            data_container = data_dict.get_prop(adtype, {})
             data_container[data_id] = bytes_list
-            data_dict[adtype] = data_container
+            data_dict.set_prop(adtype, data_container)
 
         else:
             # data_dict[ adtype ] = value
-            _LOGGER.warning("unhandled adtype: %s", adtype)
+            _LOGGER.warning("unhandled adtype: %s", hex(adtype))

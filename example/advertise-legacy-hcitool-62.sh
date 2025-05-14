@@ -27,7 +27,20 @@ sudo hciconfig $IFACE name "ble_dongle"
 
 echo "using interface: $IFACE"
 
-reset_device "${IFACE}"
+# reset_device "${IFACE}"
+
+
+# echo "=== reset state"
+#  
+# ### causes connected adapter to hang/feeze
+# ## reset device state
+# hcitool_cmd "0x03 0x0003"
+
+
+# echo "=== disabling advertisement"
+# 
+# # Enable advertising
+# hcitool_cmd "0x08 0x000A 00"
 
 
 echo "=== setting advertisement parameters"

@@ -48,6 +48,8 @@ from btgattmitm.bluepyconnector import BluepyConnector as Connector
 
 from btgattmitm.mitmmanager import MitmManager
 
+from btgattmitm.hcitool.advertisement import is_mac_address, find_hci_iface_by_mac
+
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -92,12 +94,13 @@ def configure_logger(logFile):
 ## clone_device: str - mac of device to connect to
 ## listenMode: bool - should subscribe for all notifications?
 def start_mitm(
-    interface: int, clone_device: str, listenMode, bt_name, bt_service_uuids, deviceconfig_path, dumpdevice_path
+    interface: int, clone_device: str, listenMode, bt_name, bt_service_uuids, deviceconfig_path, dumpdevice_path,
+    sudo_mode
 ):
     connection: AbstractConnector = None
     device = None
     try:
-        device = MitmManager()
+        device = MitmManager(iface_index=interface, sudo_mode=sudo_mode)
 
         prepare_sample = True
 
@@ -153,6 +156,7 @@ def start_mitm(
             device.stop()
         if connection is not None:
             connection.disconnect()
+        _LOGGER.info("application end")
 
     return True
 
@@ -160,10 +164,31 @@ def start_mitm(
 ## ========================================================================
 
 
+## iface_data - index, device name or MAC address
+def find_iface_index(iface_data: str) -> int:
+    try:
+        return int(iface_data)
+    except ValueError:
+        ## unable to convert - assuming 'iface_data' contains MAC or device name
+        pass
+
+    device_name = None
+    if is_mac_address(iface_data):
+        device_name = find_hci_iface_by_mac(iface_data)
+    else:
+        device_name = iface_data
+
+    device_index_str = device_name[3:]
+    return int(device_index_str)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Bluetooth GATT MITM")
     parser.add_argument(
-        "--iface", action="store", required=True, help="Interface to use (integer). Eg. for 'hci0' use 0."
+        "--iface",
+        action="store",
+        required=True,
+        help="Local adapter to use: integer (eg. 0), device name (eg. hci0) or MAC address (eg. 00:11:22:33:44:55)",
     )
     parser.add_argument("--connect", action="store", required=False, help="BT address to connect to")
     parser.add_argument("--bt-name", action="store", required=False, help="Device name to advertise (override device)")
@@ -188,6 +213,11 @@ def main():
         required=False,
         help="Load device configuration from file ('connect' not needed)",
     )
+    parser.add_argument("--sudo", 
+                        action="store_const",
+                        const=True,
+                        default=False, 
+                        help="Run termianal commands with sudo if required")
 
     args = parser.parse_args()
 
@@ -204,7 +234,9 @@ def main():
     exitCode = 0
 
     try:
-        interface = int(args.iface)
+        interface = find_iface_index(args.iface)
+        _LOGGER.info("found adapter index: %s", interface)
+
         valid = start_mitm(
             interface,
             args.connect,
@@ -213,6 +245,7 @@ def main():
             args.bt_service_uuids,
             args.devicefromcfg,
             args.dumpdevice,
+            args.sudo
         )
         if valid is False:
             exitCode = 1
@@ -221,7 +254,7 @@ def main():
     #     print("Error: ", e, " check if BT is powered on")
 
     except:  # noqa    # pylint: disable=W0702
-        _LOGGER.exception("Exception occured")
+        _LOGGER.error("Exception occured")
         raise
 
     sys.exit(exitCode)
