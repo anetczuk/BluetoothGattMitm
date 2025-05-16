@@ -19,7 +19,8 @@ from btgattmitm.gattmock import ApplicationMock
 from btgattmitm.advertisementmanager import AdvertisementManager
 
 # from btgattmitm.dbusobject.advertisement import DBusAdvertisementManager
-from btgattmitm.hcitool.advertisement import HciToolAdvertisementManager
+# from btgattmitm.hcitool.advertisement import HciToolAdvertisementManager
+from btgattmitm.btmgmt.advertisement import BtmgmtAdvertisementManager
 
 # from btgattmitm.dbusobject.agent import AgentManager
 
@@ -44,8 +45,10 @@ class MitmManager:
 
         self.gatt_application = ApplicationMock(self.bus)
 
-        self.advertisement: AdvertisementManager = HciToolAdvertisementManager(iface_index, sudo_mode=sudo_mode)
-        # self.advertisement: AdvertisementManager = DBusAdvertisementManager(self.bus, iface_index)
+        self.advertisement: AdvertisementManager = None
+        self.advertisement = BtmgmtAdvertisementManager(iface_index, sudo_mode=sudo_mode)
+        # self.advertisement = HciToolAdvertisementManager(iface_index, sudo_mode=sudo_mode)
+        # self.advertisement = DBusAdvertisementManager(self.bus, iface_index)
 
         self.agent = None
         # self.agent = AgentManager(self.bus)

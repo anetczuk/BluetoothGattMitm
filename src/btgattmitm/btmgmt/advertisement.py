@@ -26,120 +26,19 @@ import logging
 from typing import List, Any, Dict
 
 import subprocess  # nosec
-import re
 
 from btgattmitm.connector import AdvertisementData
 from btgattmitm.advertisementmanager import AdvertisementManager
+from btgattmitm.hcitool.advertisement import find_mac_by_hci_iface, parse_hcitool_output_status
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def is_mac_address(data):
-    pattern = re.compile(r"^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$")
-    return bool(pattern.match(data))
-
-
-## get device name (eg. hci0) using MAC address
-def find_hci_iface_by_mac(mac_address) -> str:
-    mac_address = mac_address.replace("-", ":")
-
-    cmd_list = ["hcitool", "dev"]
-    result = subprocess.run(  # nosec
-        cmd_list,
-        capture_output=True,  # Capture stdout and stderr
-        text=True,  # Decode the output as a string
-        check=True,
-    )
-
-    stdout = result.stdout
-
-    out_list = stdout.split("\n")
-    dev_lines = out_list[1:]
-    if len(dev_lines) < 1:
-        _LOGGER.warning("no devices found, raw output:\n%s", stdout)
-        return None
-
-    dev_lines = [item.strip() for item in dev_lines]
-    name_mac_list: List[List[str]] = [item.split() for item in dev_lines]
-
-    for item in name_mac_list:
-        if not item:
-            continue
-        if item[1] == mac_address:
-            return item[0]
-
-    _LOGGER.warning("unable to find device by MAC, raw output:\n%s", stdout)
-    return None
-
-
-## get MAC address using device name (eg. hci0)
-def find_mac_by_hci_iface(hci_iface_index: int) -> str:
-    cmd_list = ["hcitool", "dev"]
-    result = subprocess.run(  # nosec
-        cmd_list,
-        capture_output=True,  # Capture stdout and stderr
-        text=True,  # Decode the output as a string
-        check=True,
-    )
-
-    stdout = result.stdout
-
-    out_list = stdout.split("\n")
-    dev_lines = out_list[1:]
-    if len(dev_lines) < 1:
-        _LOGGER.warning("no devices found, raw output:\n%s", stdout)
-        return None
-
-    dev_name = f"hci{hci_iface_index}"
-
-    dev_lines = [item.strip() for item in dev_lines]
-    name_mac_list: List[List[str]] = [item.split() for item in dev_lines]
-
-    for item in name_mac_list:
-        if not item:
-            continue
-        if item[0] == dev_name:
-            found_mac = item[1]
-            found_mac = found_mac.replace("-", ":")
-            return found_mac
-
-    _LOGGER.warning("unable to find device by MAC, raw output:\n%s", stdout)
-    return None
-
-
-def parse_hcitool_output_status(output: str):
-    out_list = output.split("\n")
-
-    found_line = -1
-    for index, element in enumerate(out_list):
-        if element.startswith("> HCI Event:"):
-            found_line = index + 1
-            break
-
-    if found_line < 0 or found_line >= len(out_list):
-        _LOGGER.warning("unable to get status, raw output:\n%s", output)
-        return None
-
-    status_line = out_list[found_line]
-    status_line = status_line.strip()
-
-    status_bytes = status_line.split()
-    if len(status_bytes) < 4:
-        _LOGGER.warning("unable to get status, raw output:\n%s", output)
-        return None
-
-    return status_bytes[3]
-
-
-## =============================================================
-
-
-## unfortunately hcitool does not work well with bluepy
 class Advertiser:
 
     def __init__(self, hci_iface_index: int):
-        self.iface = f"hci{hci_iface_index}"
+        self.iface = hci_iface_index
         self.adv_data = AdvertisementData()
         self.scanresp_data = AdvertisementData()
         self.sudo_mode = False
@@ -148,54 +47,67 @@ class Advertiser:
         try:
             _LOGGER.info("Starting advertisement")
 
-            ### causes disconnection from device
-            # cmd_list = []
-            # if self.sudo_mode:
-            #     cmd_list.append("sudo")
-            # cmd_list.extend(["hciconfig", self.iface, "down"])
-            # subprocess.run(cmd_list,    # nosec
-            #     capture_output=True,  # Capture stdout and stderr
-            #     text=True,  # Decode the output as a string
-            #     check=True,
-            # )
-            #
-            # cmd_list = []
-            # if self.sudo_mode:
-            #     cmd_list.append("sudo")
-            # cmd_list.extend(["hciconfig", self.iface, "up"])
-            # subprocess.run(cmd_list,    # nosec
-            #     capture_output=True,  # Capture stdout and stderr
-            #     text=True,  # Decode the output as a string
-            #     check=True,
-            # )
+            ## enable BLE
+            self._run_btmgmt_cmd(["le", "on"])
+            
+            ## disble default advertisement - "add-adv" will activate advertisement automatically with custom data
+            self._run_btmgmt_cmd(["advertising", "off"])
 
-            #### causes connected adapter to hang
-            # ## reset device state
-            # self._run_hcitool_cmd(["0x03", "0x0003"])
-
-            ## disable advertisement
-            self._run_hcitool_cmd(["0x08", "0x000A"], ["00"])
-
-            ## set advertisement parameters
-            data = ["20", "00", "20", "00", "00", "00", "00", "00", "00", "00", "00", "00", "00", "07", "00"]
-            self._run_hcitool_cmd(["0x08", "0x0006"], data)
+            # self._run_btmgmt_cmd(["clr-adv"])
 
             ## set advertisement data
+            adv_command_data = ["add-adv"]
+
             adv_data = AdvertisementDataBuilder()
             adv_data.add_adv(self.adv_data)
-
             data = adv_data.get_data()
-            self._run_hcitool_cmd(["0x08", "0x0008"], data)
+            if data:
+                adv_command_data.append("-d")            ## set advertising data
+                data = convert_to_btmgmt(data)
+                adv_command_data.append(data)
 
             ## set scan response
-            adv_data = AdvertisementDataBuilder()
-            adv_data.add_adv(self.scanresp_data)
+            scanresp_data = AdvertisementDataBuilder()
+            scanresp_data.add_adv(self.scanresp_data)
+            data = scanresp_data.get_data()
+            if data:
+                adv_command_data.append("-s")            ## set scan response data
+                data = convert_to_btmgmt(data)
+                adv_command_data.append(data)
 
-            data = adv_data.get_data()
-            self._run_hcitool_cmd(["0x08", "0x0009"], data)
+            adv_command_data.append("-c")                ## set connectable
 
-            ## enable advertisement
-            self._run_hcitool_cmd(["0x08", "0x000A"], ["01"])
+            adv_instance = "2"      ## have to be greater than 1
+
+            adv_command_data.append(adv_instance)        ## set advertising instance
+
+            self._run_btmgmt_cmd(adv_command_data)
+
+            ## workaround for disabling privacy (random MAC)
+            ## because 'btmgmt' way seems not working:
+            ##   sudo btmgmt --index ${IFACE} power off
+            ##   sudo btmgmt --index ${IFACE} privacy off
+            ##   sudo btmgmt --index ${IFACE} power on
+            ## workaround is to call 'hcitool' directly
+            ### at least works, but better to disable privacy instead of setting MAC directly
+            device_mac = find_mac_by_hci_iface(self.iface)
+            mac_bytes = device_mac.split(":")
+            mac_bytes.reverse()
+            cmd_list = ["hcitool", "-i", "hci0", "cmd", "0x08", "0x0035", adv_instance]
+            cmd_list.extend(mac_bytes)
+            result = self._run_cmd(cmd_list)
+            if result is None:
+                _LOGGER.warning("unable to set MAC address")
+                return False
+            status_byte = parse_hcitool_output_status(result.stdout)
+            if status_byte is None:
+                _LOGGER.warning("unable to set MAC address")
+                return False
+            status = int(status_byte, 16)
+            if status == 0x00:
+                _LOGGER.info("static MAC address configured")
+            else:
+                _LOGGER.warning("unable to set MAC address, response status: %s", status)
 
             _LOGGER.info("Advertisement started")
             return True
@@ -210,21 +122,13 @@ class Advertiser:
 
     def stop(self):
         try:
-            # Stop advertising
-            cmd_list = []
-            if self.sudo_mode:
-                cmd_list.append("sudo")
-            cmd_list.extend(["hciconfig", self.iface, "noscan"])
-            subprocess.run(cmd_list,    # nosec
-                capture_output=True,  # Capture stdout and stderr
-                text=True,  # Decode the output as a string
-                check=True,
-            )
+            # stop advertising
+            self._run_btmgmt_cmd("clr-adv")
             _LOGGER.info("Advertisement stopped")
             return True
 
         except subprocess.CalledProcessError as exc:
-            message = exc.stderr.strip()
+            message = exc.output.strip()
             _LOGGER.error("exception occur during advertisement stop, reason: %s", message)
             _LOGGER.warning("in case of lack of privileges try running program with --sudo option")
             return False
@@ -233,60 +137,49 @@ class Advertiser:
             _LOGGER.exception("exception occur during advertisement stop")
             return False
 
-    def _run_hcitool_cmd(self, cmd_bytes, data_list: List[str] = None) -> bool:
-        if data_list is None:
-            data_list = []
+    def _run_btmgmt_cmd(self, cmd_params: str|List[str] = None) -> bool:
+        if cmd_params is None:
+            cmd_params = []
+        if isinstance(cmd_params, str):
+            cmd_params = [cmd_params]
+        cmd_list = []
+        cmd_list.extend(["btmgmt", "--index", str(self.iface)])
+        cmd_list.extend(cmd_params)
+        result = self._run_cmd(cmd_list)
+        if result is None:
+            return False
+        return True
 
-        status_byte = None
+    def _run_cmd(self, cmd_params: str|List[str] = None) -> bool:
+        if cmd_params is None:
+            cmd_params = []
+        if isinstance(cmd_params, str):
+            cmd_params = [cmd_params]
 
         try:
             cmd_list = []
             if self.sudo_mode:
                 cmd_list.append("sudo")
-            cmd_list.extend(["hcitool", "-i", self.iface, "cmd"])
-            cmd_list.extend(cmd_bytes)
-            cmd_list.extend(data_list)
+            cmd_list.extend(cmd_params)
             _LOGGER.info("executing: %s", " ".join(cmd_list))
 
             result = subprocess.run(  # nosec
                 cmd_list,
-                capture_output=True,  # Capture stdout and stderr
-                text=True,  # Decode the output as a string
+                capture_output=True,  # capture stdout and stderr
+                text=True,  # decode the output as a string
                 check=True,
             )
 
-            status_byte = parse_hcitool_output_status(result.stdout)
-            if status_byte is None:
-                return False
+            _LOGGER.info("command response: %s", result.stdout.strip())
+            return result
 
         except subprocess.CalledProcessError as exc:
-            message = exc.stderr.strip()
-            _LOGGER.error("error while running command: %s, reason: %s", cmd_list, message)
+            message = exc.output.strip()
+            _LOGGER.error("error while running command: %s, reason: %s", " ".join(cmd_list), message)
             _LOGGER.warning("in case of lack of privileges try running program with --sudo option")
             raise
 
-        status = int(status_byte, 16)
-
-        meaning = ""
-        if status == 0x00:
-            meaning = "Success"
-        elif status == 0x0C:
-            meaning = "Command Disallowed"
-
-        if status == 0x00:
-            if meaning:
-                _LOGGER.info("got status: %s 0x%s", meaning, status_byte)
-            else:
-                _LOGGER.info("got status: 0x%s", status_byte)
-        else:
-            if meaning:
-                _LOGGER.error("got status: %s 0x%s", meaning, status_byte)
-            else:
-                _LOGGER.error("got status: 0x%s", status_byte)
-
-            raise RuntimeError(f"command failed with status: 0x{status_byte}")
-
-        return True
+        return None
 
 
 class AdvertisementDataBuilder:
@@ -296,8 +189,6 @@ class AdvertisementDataBuilder:
 
     def get_data(self):
         ret_data = []
-        data_len = len(self.data)
-        ret_data.append(hex(data_len))
         ret_data.extend(self.data)
         return ret_data
 
@@ -340,7 +231,7 @@ class AdvertisementDataBuilder:
                     service_num = int(service_id, 16)
                     service_id_list = int_to_hex_list(service_num)
 
-                    self.add_field("0x02", service_id)
+                    self.add_field("0x02", service_id_list)
                     data_str = [hex(item) for item in service_data]
                     data_list = service_id_list
                     data_list.extend(data_str)
@@ -370,10 +261,32 @@ def int_to_hex_list(number: int, byte_order="little"):
     return [f"{byte:02X}" for byte in bytes_list]
 
 
+def convert_to_btmgmt(data_list: List[str]):
+    data = remove_hex_prefix(data_list)
+    ret_data = []
+    for item in data:
+        if len(item) < 2:
+            ret_data.append(f"0{item}")
+        else:
+            ret_data.append(item)
+    return "".join(ret_data)
+
+
+## remove 0x prefix
+def remove_hex_prefix(data_list: List[str]):
+    ret_data = []
+    for item in data_list:
+        if item.startswith("0x"):
+            ret_data.append(item[2:])
+        else:
+            ret_data.append(item)
+    return ret_data
+
+
 ## =======================================================
 
 
-class HciToolAdvertisementManager(AdvertisementManager):
+class BtmgmtAdvertisementManager(AdvertisementManager):
 
     def __init__(self, hci_iface_index: int, sudo_mode: bool = False):
         self.adv = Advertiser(hci_iface_index)
