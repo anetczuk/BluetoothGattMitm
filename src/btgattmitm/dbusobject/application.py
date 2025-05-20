@@ -49,5 +49,5 @@ class Application(dbus.service.Object):
                 descs = chrc.get_descriptors()
                 for desc in descs:
                     response[desc.get_path()] = desc.get_properties()
-        _LOGGER.info("found services:\n%s", pprint.pformat(response))
+        _LOGGER.info("registered services:\n%s", pprint.pformat(response))
         return response

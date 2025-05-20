@@ -8,6 +8,8 @@ SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 
 source "${SCRIPT_DIR}/_lib.bash"
 
+read_iface_mac $@
+
 
 ## authenticate as root
 sudo date > /dev/null

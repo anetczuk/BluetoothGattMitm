@@ -109,7 +109,7 @@ def get_services_data(peripheral) -> List[ServiceData]:
 
         charsList = serv.getCharacteristics()
         for ch in charsList:
-            _LOGGER.debug("Char: %s h:%i p:%s", ch, ch.getHandle(), ch.propertiesToString())
+            _LOGGER.debug("Char: %s h:%#x p:%s", ch, ch.getHandle(), ch.propertiesToString())
             char_uuid = ch.uuid
             char_name = ch.uuid.getCommonName()
             char_handle = ch.getHandle()
@@ -126,20 +126,24 @@ class BluepyConnector(AbstractConnector):
     """Deprecated connector based on bluepy."""
 
     ## iface: int - hci index
-    def __init__(self, mac, iface=None):
+    def __init__(self, mac, iface=None, address_type=None):
         super().__init__()
 
         self.address = mac
+        self.addressType = address_type
         self.iface = iface
         self.callbacks = CallbackContainer()
         self.connectDelegate = ConnectDelegate(self.callbacks)
-        self._peripheral = None
+        self._peripheral: btle.Peripheral = None
 
     def is_connected(self) -> bool:
         return self._peripheral is not None
 
     def get_address(self) -> str:
         return self.address
+
+    def get_address_type(self):
+        return self.addressType
 
     def get_advertisement_data(self) -> List[AdvertisementData]:
         return self._scan()
@@ -170,11 +174,15 @@ class BluepyConnector(AbstractConnector):
         return services_list
 
     @synchronized
-    def _connect(self):
+    def _connect(self) -> btle.Peripheral:
         if self._peripheral is not None:
             return self._peripheral
 
-        addr_type_set = (btle.ADDR_TYPE_RANDOM, btle.ADDR_TYPE_PUBLIC)
+        if self.addressType == "public":
+            addr_type_set = (btle.ADDR_TYPE_PUBLIC, btle.ADDR_TYPE_RANDOM)
+        else:
+            addr_type_set = (btle.ADDR_TYPE_RANDOM, btle.ADDR_TYPE_PUBLIC)
+
         for addr_type in addr_type_set:
             _LOGGER.debug(f"connecting to device {self.address} type: {addr_type}")
             try:
@@ -182,6 +190,7 @@ class BluepyConnector(AbstractConnector):
                 conn.withDelegate(self.connectDelegate)
                 conn.connect(self.address, addrType=addr_type, iface=self.iface)
                 _LOGGER.debug("connected")
+                self.addressType = str(addr_type)
                 self._peripheral = conn
                 return self._peripheral
             except btle.BTLEException as ex:
@@ -198,7 +207,7 @@ class BluepyConnector(AbstractConnector):
         self._peripheral = None
 
     @synchronized
-    def write_characteristic(self, handle, val):
+    def write_characteristic(self, handle: int, val):
         if self._peripheral is None:
             raise InvalidStateError("not connected")
         self._peripheral.writeCharacteristic(handle, val)
@@ -210,13 +219,13 @@ class BluepyConnector(AbstractConnector):
         return self._peripheral.readCharacteristic(handle)
 
     @synchronized
-    def subscribe_for_notification(self, handle, callback):
+    def subscribe_for_notification(self, handle: int, callback):
         data = struct.pack("BB", 1, 0)
         self.write_characteristic(handle, data)
         self.callbacks.register(handle, callback)
 
     @synchronized
-    def unsubscribe_from_notification(self, handle, callback):
+    def unsubscribe_from_notification(self, handle: int, callback):
         data = struct.pack("BB", 0, 0)
         ret = self.write_characteristic(handle, data)
         self.callbacks.unregister(handle, callback)
@@ -224,8 +233,11 @@ class BluepyConnector(AbstractConnector):
 
     @synchronized
     def process_notifications(self):
-        if self._peripheral is not None:
-            self._peripheral.waitForNotifications(0.1)
+        if self._peripheral is None:
+            return
+        if self._peripheral.waitForNotifications(1.0):
+            return
+        # _LOGGER.debug("waiting for notifications...")
 
 
 ###
@@ -235,12 +247,12 @@ class ConnectDelegate(btle.DefaultDelegate):
         super().__init__()
         self.callbacks = callbacks
 
-    def handleNotification(self, cHandle, data):
+    def handleNotification(self, cHandle: int, data):
         try:
-            ## _LOGGER.debug("new notification: %s >%s<", cHandle, data)
+            _LOGGER.debug("Received new notification: %#x >%s<", cHandle, data)
             callbacks = self.callbacks.get(cHandle)
             if callbacks is None:
-                ##_LOGGER.debug("no callback found for handle: %i", cHandle)
+                _LOGGER.debug("No callback found for notification handle: %#x", cHandle)
                 return
             for function in callbacks:
                 if function is not None:
@@ -269,8 +281,8 @@ class ScanDelegate(btle.DefaultDelegate):
     def get_scan_data(self) -> AdvertisementData:
         return self.scan_dict
 
-    def handleNotification(self, cHandle, data):
-        _LOGGER.debug("new notification: %s >%s<", cHandle, data)
+    def handleNotification(self, cHandle: int, data):
+        _LOGGER.debug("new notification: %#x >%s<", cHandle, data)
 
     def handleDiscovery(self, scanEntry, isNewDev, isNewData):
         if self.mac_filter:
@@ -313,8 +325,15 @@ class ScanDelegate(btle.DefaultDelegate):
             value = int(value, 16)
             data_dict.set_prop(adtype, value)
 
+        ## Incomplete 16b Services
         elif adtype == 0x02:
-            ## Incomplete 16b Services
+            ## store in list
+            data_container = data_dict.get_prop(adtype, [])
+            data_container.append(value)
+            data_dict.set_prop(adtype, data_container)
+
+        ## Incomplete 128b Services
+        elif adtype == 0x06:
             ## store in list
             data_container = data_dict.get_prop(adtype, [])
             data_container.append(value)

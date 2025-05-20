@@ -75,7 +75,7 @@ class Characteristic(dbus.service.Object):
     ### called on read request from connected device
     # @dbus.service.method(GATT_CHRC_IFACE, out_signature="ay")
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="a{sv}", out_signature="ay")
-    def ReadValue(self, _):
+    def ReadValue(self, _value):
         # def ReadValue(self, options):
         try:
             # pylint: disable=E1111
@@ -90,7 +90,7 @@ class Characteristic(dbus.service.Object):
     ### called when connected device send something to characteristic
     # @dbus.service.method(GATT_CHRC_IFACE, in_signature="ay")
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="aya{sv}")
-    def WriteValue(self, value, _):
+    def WriteValue(self, value, _value):
         # def WriteValue(self, value, options):
         try:
             # _LOGGER.debug("Received data from client: %s", repr(value))
@@ -126,7 +126,7 @@ class Characteristic(dbus.service.Object):
         _LOGGER.debug("Default ReadValue called, returning error")
         raise NotSupportedException()
 
-    def writeValueHandler(self, _):
+    def writeValueHandler(self, _value):
         # def writeValueHandler(self, value):
         _LOGGER.debug("Default WriteValue called, returning error")
         raise NotSupportedException()

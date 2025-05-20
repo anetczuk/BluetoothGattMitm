@@ -1,71 +1,75 @@
 #!/bin/bash
 
 
-if [[ $# < 1 ]]; then
-    echo "missing parameter: BT MAC address (eg. 00:11:22:33:44:55) or iface name (eg. hci0)"
-    echo "available ifaces and mac addresses:"
-
-    IFACES_LIST=$(hciconfig | awk '
-/^hci[0-9]+/ { iface=$1 }
-/BD Address:/ { print iface, $3 }
-' | sort -u)
-
-    echo "${IFACES_LIST}"
-    exit 1
-fi
-
-
-INTERFACE_DATA="$1"
-
-BT_DEVICE_MAC=""
 IFACE=""
 
 
-if [[ $INTERFACE_DATA =~ ^([A-Fa-f0-9]{2}:){5}[A-Fa-f0-9]{2}$ ]]; then
-    ## given input is MAC address
-    BT_DEVICE_MAC="$INTERFACE_DATA"
-else
-    ## assume that given input is interface name
-    IFACE="$INTERFACE_DATA"
-fi
-
-
-if [[ -z ${IFACE+x} ]] || [[ -z "${IFACE}" ]]; then
-    if [[ -z ${BT_DEVICE_MAC+x} ]]; then
-        echo "missing IFACE or BT_DEVICE_MAC variables"
-        echo "set one of them is required"
+read_iface_mac() {
+    if [[ $# < 1 ]]; then
+        echo "missing parameter: BT MAC address (eg. 00:11:22:33:44:55) or iface name (eg. hci0)"
+        echo "available ifaces and mac addresses:"
+    
+        IFACES_LIST=$(hciconfig | awk '
+    /^hci[0-9]+/ { iface=$1 }
+    /BD Address:/ { print iface, $3 }
+    ' | sort -u)
+    
+        echo "${IFACES_LIST}"
         exit 1
     fi
-
-    ## hci device not given -- find it using MAC
-    for hci_item in $(hciconfig | grep ^hci | cut -d: -f1); do
-        MAC=$(hciconfig "$hci_item" | grep "BD Address" | awk '{print $3}')
-        MAC=${MAC,,}    ## lowercase
-        if [[ "$MAC" == "${BT_DEVICE_MAC,,}" ]]; then
-            echo "Found interface: $hci_item mac: ${BT_DEVICE_MAC}"
-            IFACE="${hci_item}"
-            break
+    
+    
+    INTERFACE_DATA="$1"
+    
+    BT_DEVICE_MAC=""
+    
+    
+    if [[ $INTERFACE_DATA =~ ^([A-Fa-f0-9]{2}:){5}[A-Fa-f0-9]{2}$ ]]; then
+        ## given input is MAC address
+        BT_DEVICE_MAC="$INTERFACE_DATA"
+    else
+        ## assume that given input is interface name
+        IFACE="$INTERFACE_DATA"
+    fi
+    
+    
+    if [[ -z ${IFACE+x} ]] || [[ -z "${IFACE}" ]]; then
+        if [[ -z ${BT_DEVICE_MAC+x} ]]; then
+            echo "missing IFACE or BT_DEVICE_MAC variables"
+            echo "set one of them is required"
+            exit 1
         fi
-    done
-
-    if [[ -z "${IFACE}" ]]; then
-        echo "No matching HCI device for MAC: $BT_DEVICE_MAC"
+    
+        ## hci device not given -- find it using MAC
+        for hci_item in $(hciconfig | grep ^hci | cut -d: -f1); do
+            MAC=$(hciconfig "$hci_item" | grep "BD Address" | awk '{print $3}')
+            MAC=${MAC,,}    ## lowercase
+            if [[ "$MAC" == "${BT_DEVICE_MAC,,}" ]]; then
+                echo "Found interface: $hci_item mac: ${BT_DEVICE_MAC}"
+                IFACE="${hci_item}"
+                break
+            fi
+        done
+    
+        if [[ -z "${IFACE}" ]]; then
+            echo "No matching HCI device for MAC: $BT_DEVICE_MAC"
+            exit 1
+        fi
+    fi
+    
+    
+    FAILED=0
+    hciconfig | grep "$IFACE" > /dev/null|| FAILED=1
+    #btmgmt info | grep "$IFACE" || FAILED=1
+    
+    if [[ FAILED -eq 1 ]]; then
+        echo "current devices:"
+        #btmgmt info
+        hciconfig -a
+        echo "could not find device: $IFACE"
         exit 1
     fi
-fi
-
-
-FAILED=0
-hciconfig | grep "$IFACE" > /dev/null|| FAILED=1
-#btmgmt info | grep "$IFACE" || FAILED=1
-
-if [[ FAILED -eq 1 ]]; then
-    echo "current devices:"
-    #btmgmt info
-    hciconfig -a
-    echo "could not find device: $IFACE"
-    exit 1
-fi
+}
 
 
 #####################################################################

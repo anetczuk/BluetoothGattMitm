@@ -15,7 +15,7 @@ from gi.repository import GObject
 import dbus.mainloop.glib
 
 from btgattmitm.connector import NotificationHandler, AbstractConnector, AdvertisementData
-from btgattmitm.gattmock import ApplicationMock
+from btgattmitm.gattmock import ApplicationMock, ConfigConnector
 from btgattmitm.advertisementmanager import AdvertisementManager
 
 # from btgattmitm.dbusobject.advertisement import DBusAdvertisementManager
@@ -41,7 +41,7 @@ class MitmManager:
 
         self.bus = dbus.SystemBus()
 
-        self._notificationHandler = None
+        self._notificationHandler: NotificationHandler = None
 
         self.gatt_application = ApplicationMock(self.bus)
 
@@ -79,35 +79,41 @@ class MitmManager:
                 _LOGGER.warning("unable to connect to device")
                 return False
 
+        _LOGGER.debug("Setting notification handler")
         if self._notificationHandler is not None:
             self._notificationHandler.stop()
         self._notificationHandler = NotificationHandler(connector)
 
         return True
 
-    def configure_config(self, device_config):
+    def configure_config(self, device_config, listenMode):
         """Configure service based on config dict."""
         _LOGGER.debug("Configuring device by config")
-        if self.gatt_application is not None:
-            services_dict = device_config.get("services", {})
-            services_list = services_dict.values()
-            services_list = list(services_list)
-            valid = self.gatt_application.prepare_services(services_list)
-            if valid is False:
-                _LOGGER.warning("unable to configure services")
-                return False
 
         ## register advertisement
         if self.advertisement is not None:
             adv_dict = device_config.get("advertisement", {})
             adv_data: AdvertisementData = AdvertisementData(adv_dict)
             self._configure_advertisement(adv_data)
-
-        ## register scan response
-        if self.advertisement is not None:
             scanresp_dict = device_config.get("scanresponse", {})
             scanresp_data: AdvertisementData = AdvertisementData(scanresp_dict)
             self._configure_scanresponse(scanresp_data)
+
+        ## register services
+        if self.gatt_application is not None:
+            services_dict = device_config.get("services", {})
+            services_list = services_dict.values()
+            services_list = list(services_list)
+            connector = ConfigConnector(services_list)
+            valid = self.gatt_application.clone_services(connector, listenMode)
+            if valid is False:
+                _LOGGER.warning("unable to configure services")
+                return False
+
+        _LOGGER.debug("Setting notification handler")
+        if self._notificationHandler is not None:
+            self._notificationHandler.stop()
+        self._notificationHandler = NotificationHandler(connector)
 
         return True
 
@@ -123,12 +129,6 @@ class MitmManager:
             return
         self.advertisement.add_scanresp_data(scanresp_data)
 
-    def configure_sample(self):
-        _LOGGER.debug("Configuring sample")
-        if self.gatt_application is not None:
-            return self.gatt_application.prepare_sample()
-        return False
-
     ## configure services and start main loop
     def start(self):
         ## register advertisement
@@ -142,8 +142,8 @@ class MitmManager:
         if self.gatt_application is not None:
             self.gatt_application.register()
 
-        _LOGGER.debug("Starting notification handler")
         if self._notificationHandler is not None:
+            _LOGGER.debug("Starting notification handler")
             self._notificationHandler.start()
 
         _LOGGER.debug("Starting main loop")

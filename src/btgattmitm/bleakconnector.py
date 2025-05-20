@@ -203,9 +203,9 @@ class BleakConnector(AbstractConnector):
             self._peripheral.disconnect()
         self._peripheral = None
 
-    def handleNotification(self, cHandle, data):
+    def handleNotification(self, cHandle: int, data):
         try:
-            ## _LOGGER.debug("new notification: %s >%s<", cHandle, data)
+            ## _LOGGER.debug("new notification: %#x >%s<", cHandle, data)
             callbacks = self.callbacks.get(cHandle)
             if callbacks is None:
                 ##_LOGGER.debug("no callback found for handle: %i", cHandle)

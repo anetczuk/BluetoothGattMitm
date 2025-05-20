@@ -58,6 +58,14 @@ class AdvertisementData:
         ## merge dicts
         self.props_dict = self.props_dict | adv_data.props_dict
 
+    ## ========================================================
+
+    def get_flags(self):
+        return self.props_dict.get(0x01)
+
+    def get_name(self):
+        return self.props_dict.get(0x09)
+
     def set_name(self, name: str):
         self.props_dict[0x09] = name
 
@@ -138,7 +146,7 @@ class ServiceData:
         chars_list = self.getCharacteristics()
         for char_item in chars_list:
             _LOGGER.debug(
-                "  Char: %s [%s] h:%i p:%s",
+                "  Char: %s [%s] h:%#x p:%s",
                 char_item.uuid,
                 char_item.getCommonName(),
                 char_item.getHandle(),
@@ -186,6 +194,9 @@ class ServiceData:
 
 
 class ServiceConnector:
+    def get_services(self) -> List[ServiceData]:
+        raise NotImplementedError()
+
     def read_characteristic(self, handle):
         raise NotImplementedError()
 
@@ -206,6 +217,9 @@ class AbstractConnector(ServiceConnector):
     def get_address(self) -> str:
         raise NotImplementedError()
 
+    def get_address_type(self):
+        raise NotImplementedError()
+
     def disconnect(self):
         raise NotImplementedError()
 
@@ -214,23 +228,20 @@ class AbstractConnector(ServiceConnector):
     def get_advertisement_data(self) -> List[AdvertisementData]:
         raise NotImplementedError()
 
-    def get_services(self) -> List[ServiceData]:
-        raise NotImplementedError()
-
-    def read_characteristic(self, handle):
-        raise NotImplementedError()
-
-    def write_characteristic(self, handle, val):
-        raise NotImplementedError()
-
-    def subscribe_for_notification(self, handle, callback):
-        raise NotImplementedError()
-
-    def unsubscribe_from_notification(self, handle, callback):
-        raise NotImplementedError()
-
     def process_notifications(self):
         raise NotImplementedError()
+
+    # def read_characteristic(self, handle):
+    #     raise NotImplementedError()
+    #
+    # def write_characteristic(self, handle, val):
+    #     raise NotImplementedError()
+    #
+    # def subscribe_for_notification(self, handle, callback):
+    #     raise NotImplementedError()
+    #
+    # def unsubscribe_from_notification(self, handle, callback):
+    #     raise NotImplementedError()
 
 
 # =====================================================
@@ -261,7 +272,7 @@ class CallbackContainer:
 
 class NotificationHandler(Thread):
     def __init__(self, connector: AbstractConnector):
-        Thread.__init__(self)
+        Thread.__init__(self, target=self._work)
         self.connector: AbstractConnector = connector
         self.daemon = True
         self.execute = True
@@ -271,7 +282,7 @@ class NotificationHandler(Thread):
         self._stop_loop()
         self.join()
 
-    def run(self):
+    def _work(self):
         try:
             _LOGGER.info("Starting notify handler")
             self.execute = True

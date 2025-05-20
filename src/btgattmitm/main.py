@@ -43,8 +43,8 @@ import logging.handlers
 from btgattmitm import dataio
 from btgattmitm.connector import AbstractConnector
 
-# from btgattmitm.bleakconnector import BleakConnector as Connector
-from btgattmitm.bluepyconnector import BluepyConnector as Connector
+# from btgattmitm.bleakconnector import BleakConnector
+from btgattmitm.bluepyconnector import BluepyConnector
 
 from btgattmitm.mitmmanager import MitmManager
 
@@ -102,29 +102,34 @@ def start_mitm(
     try:
         device = MitmManager(iface_index=interface, sudo_mode=sudo_mode)
 
-        prepare_sample = True
-
-        if clone_device is not None:
-            # connection = Connector(btServiceAddress)
-            connection = Connector(clone_device, iface=interface)
-
-            valid_clone = device.configure_clone(connection, listenMode)
-            if valid_clone is False:
-                _LOGGER.warning("unable to connect to device")
-                return False
-            prepare_sample = False
-
+        device_config = None
         if deviceconfig_path:
             device_config = dataio.load_from(deviceconfig_path)
+            if clone_device is None:
+                clone_device = device_config.get("targetaddress", None)
+
+        if not device_config:
+            if clone_device is not None:
+                _LOGGER.info("cloning device: %s", clone_device)
+                
+                addr_type = None
+                if device_config:
+                    addr_type = device_config.get("addresstype")
+    
+                # connection = BleakConnector(btServiceAddress)
+                connection = BluepyConnector(clone_device, iface=interface, address_type=addr_type)
+    
+                valid_clone = device.configure_clone(connection, listenMode)
+                if valid_clone is False:
+                    _LOGGER.warning("unable to connect to device")
+                    return False
+            else:
+                _LOGGER.info("device cloning skipped")
+
+        else:
             if bt_name is None:
                 bt_name = device_config.get("name", None)
-            if device.configure_config(device_config):
-                prepare_sample = False
-
-        if prepare_sample:
-            if device.configure_sample() is False:
-                _LOGGER.warning("unable to configure sample service")
-                return False
+            device.configure_config(device_config, listenMode)
 
         if bt_name:
             device.advertisement.set_local_name(bt_name)
@@ -137,7 +142,8 @@ def start_mitm(
             if bt_name:
                 device_dump_config["name"] = bt_name
             if clone_device:
-                device_dump_config["address"] = clone_device
+                device_dump_config["targetaddress"] = clone_device
+            device_dump_config["addresstype"] = connection.get_address_type()
             device_dump_config["advertisement"] = device.get_adv_config()
             device_dump_config["scanresponse"] = device.get_scanresp_config()
             device_dump_config["services"] = device.get_services_config()

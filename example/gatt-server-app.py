@@ -419,9 +419,16 @@ class TestCharacteristic(Characteristic):
 
     def __init__(self, bus, index, service):
         Characteristic.__init__(
-            self, bus, index, self.TEST_CHRC_UUID, ["read", "write", "writable-auxiliaries"], service
+            self,
+            bus,
+            index,
+            self.TEST_CHRC_UUID,
+            ["read", "write", "notify"],
+            service,
+            # self, bus, index, self.TEST_CHRC_UUID, ["read", "write", "writable-auxiliaries", "notify"], service
         )
-        self.value = []
+        self.notifying = False
+        self.value = [0]
         self.add_descriptor(TestDescriptor(bus, 0, self))
         self.add_descriptor(CharacteristicUserDescriptionDescriptor(bus, 1, self))
 
@@ -434,6 +441,37 @@ class TestCharacteristic(Characteristic):
         # def WriteValue(self, value, options):
         print("TestCharacteristic Write: " + repr(value))
         self.value = value
+        self.notify_value()
+
+    ## =============================
+
+    def notify_value(self):
+        if not self.notifying:
+            return
+        try:
+            print("notifying value:", self.value, type(self.value))
+            val = self.value[0]
+            self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": [dbus.Byte(val)]}, [])
+        except Exception as exc:  # pylint: disable=W0718
+            print("Exception occured:", exc)
+
+    def StartNotify(self):
+        if self.notifying:
+            print("Already notifying, nothing to do")
+            return
+        try:
+            print("Starting notifying")
+            self.notifying = True
+            self.notify_value()
+        except Exception as exc:  # pylint: disable=W0718
+            print("Exception occured:", exc)
+
+    def StopNotify(self):
+        if not self.notifying:
+            print("Not notifying, nothing to do")
+            return
+        print("Stopping notifying")
+        self.notifying = False
 
 
 class TestDescriptor(Descriptor):

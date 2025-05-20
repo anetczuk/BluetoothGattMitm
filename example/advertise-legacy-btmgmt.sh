@@ -14,6 +14,8 @@ SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 
 source "${SCRIPT_DIR}/_lib.bash"
 
+read_iface_mac $@
+
 
 ## authenticate as root
 sudo date > /dev/null
@@ -92,7 +94,7 @@ echo "=== setting scan response"
 
 scanresp_data=""
 
-## 0xFF - manufacturer name
+# 0xFF - manufacturer name
 manufacturer_data="0xFF d0 07 00 00 01 04 96 1c 64 ff 53 ed 16 10 e1 91 1c f1 bf 03 b5 f8"
 scanresp_data=$(add_field_to_data "${scanresp_data}" "${manufacturer_data}")
 
@@ -104,7 +106,12 @@ scanresp_data=$(remove_hex_prefix "${scanresp_data}")
 echo "adv data: ${adv_data}"
 echo "scanresp data: ${scanresp_data}"
 
-sudo btmgmt --index ${IFACE} add-adv -d "${adv_data}" -s "${scanresp_data}" ${INSTANCE}
+services_uuids=""
+# services_uuids="-u 99112233-3344-1024-8899-001122334455"
+
+sudo btmgmt --index ${IFACE} add-adv \
+            ${services_uuids} \
+            -d "${adv_data}" -s "${scanresp_data}" ${INSTANCE}
 
 
 echo "=== info ==="
