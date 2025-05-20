@@ -74,10 +74,10 @@ class AdvertisementData:
 
 
 class CharacteristicData:
-    def __init__(self, char_uuid, char_name, char_handle, char_props):
-        self._uuid = char_uuid
-        self._common_name = char_name
-        self._handle = char_handle
+    def __init__(self, char_uuid: str, char_name: str, char_handle: int, char_props: List[str]):
+        self._uuid: str = char_uuid
+        self._common_name: str = char_name
+        self._handle: int = char_handle
         self._props_list: List[str] = char_props
 
     @property
@@ -107,9 +107,9 @@ class CharacteristicData:
 
 
 class ServiceData:
-    def __init__(self, service_uuid, service_name=None):
-        self._uuid = service_uuid
-        self._common_name = service_name
+    def __init__(self, service_uuid: str, service_name: str = None):
+        self._uuid: str = service_uuid
+        self._common_name: str = service_name
         self._chars_list: List[CharacteristicData] = []
 
     @property
@@ -126,7 +126,7 @@ class ServiceData:
 
     # handle: int, example: 61
     # properties: List[str], example: ["write-without-response", "write"]
-    def add_characteristic(self, char_uuid, char_name, char_handle, char_props):
+    def add_characteristic(self, char_uuid: str, char_name: str, char_handle: int, char_props: List[str]):
         char_data = CharacteristicData(char_uuid, char_name, char_handle, char_props)
         self._chars_list.append(char_data)
 
@@ -194,9 +194,6 @@ class ServiceData:
 
 
 class ServiceConnector:
-    def get_services(self) -> List[ServiceData]:
-        raise NotImplementedError()
-
     def read_characteristic(self, handle):
         raise NotImplementedError()
 
@@ -214,6 +211,9 @@ class AbstractConnector(ServiceConnector):
     def is_connected(self) -> bool:
         raise NotImplementedError()
 
+    def connect(self):
+        raise NotImplementedError()
+
     def get_address(self) -> str:
         raise NotImplementedError()
 
@@ -226,6 +226,9 @@ class AbstractConnector(ServiceConnector):
     ## returns one of two AdvertisementData items
     ## first one is advertisement data, second is scan response data
     def get_advertisement_data(self) -> List[AdvertisementData]:
+        raise NotImplementedError()
+
+    def get_services(self) -> List[ServiceData]:
         raise NotImplementedError()
 
     def process_notifications(self):

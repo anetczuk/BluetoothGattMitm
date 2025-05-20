@@ -26,10 +26,10 @@ import logging
 from typing import List
 import struct
 
-try:
-    from gi.repository import GObject
-except ImportError:
-    import gobject as GObject
+# try:
+#     from gi.repository import GObject
+# except ImportError:
+#     import gobject as GObject
 import dbus
 
 from btgattmitm.dbusobject.service import Service
@@ -50,64 +50,79 @@ def to_hex_string(data):
 
 
 class CharacteristicMock(Characteristic):
+    ## service - dbus service
     def __init__(
-        self, btCharacteristic: CharacteristicData, bus, index, service, connector: ServiceConnector, listenMode
+        self, btCharacteristic: CharacteristicData, bus, index: int, service: Service, connector: ServiceConnector
     ):
-        ## instance of BluepyConnector
-        self.connector: ServiceConnector = connector
-        self.cHandler = btCharacteristic.getHandle()
-
         btUuid = btCharacteristic.uuid
-        self.chUuid = str(btUuid)
-
-        _LOGGER.debug("Creating characteristic: %s[%s] h:%#x index:%#x", self.chUuid, btCharacteristic.getCommonName(), self.cHandler, index)
-
+        chUuid = str(btUuid)
+        cHandler = btCharacteristic.getHandle()
         flags = btCharacteristic.properties
         # flags = self._get_flags(btCharacteristic)
-        Characteristic.__init__(self, bus, index, self.chUuid, flags, service)
+
+        _LOGGER.debug(
+            "Creating characteristic: %s[%s] h:%#x index:%#x flags: %s",
+            chUuid,
+            btCharacteristic.getCommonName(),
+            cHandler,
+            index,
+            flags,
+        )
+
+        Characteristic.__init__(self, bus, index, chUuid, flags, service)
+
+        ## instance of BluepyConnector
+        self.connector: ServiceConnector = connector
+        self.handler = cHandler
 
         ## subscribe for notifications
-        if listenMode:
+        if self.connector:
             ncount = flags.count("notify") + flags.count("indicate")
             if ncount > 0:
                 self.startNotifyHandler()
-                # _LOGGER.debug("Subscribing for notification %s", self.chUuid)
-                # self.connector.subscribe_for_notification(self.cHandler, self._handle_notification)
+                # _LOGGER.debug("Subscribing for notification %s", chUuid)
+                # self.connector.subscribe_for_notification(self.handler, self._handle_notification)
 
     # def _handle_notification(self, data):
     #     data = bytearray(data)
-    #     _LOGGER.debug("Received char %s notification data: [%s]", self.chUuid, to_hex_string(data))
+    #     _LOGGER.debug("Received char %s notification data: [%s]", chUuid, to_hex_string(data))
 
     def readValueHandler(self):
-        _LOGGER.debug("Client read request from %s", self.chUuid)
-        data = self.connector.read_characteristic(self.cHandler)
+        _LOGGER.debug("Client read request from %s", self.uuid)
+        if self.connector is None:
+            return None
+        data = self.connector.read_characteristic(self.handler)
         # _LOGGER.debug("Got raw data: %s %s", data, type(data))
         # data = self._convert_data(data)
         if isinstance(data, int):
             data = [data]
-        _LOGGER.debug("Client reads from %s: data: %s hex: %s", self.chUuid, repr(data), to_hex_string(data))
+        _LOGGER.debug("Client reads from %s: data: %s hex: %s", self.uuid, repr(data), to_hex_string(data))
         return data
 
     def writeValueHandler(self, value):
-        _LOGGER.debug("Client write request to %s", self.chUuid)
         ## convert 'dbus.Array' to bytes
         data = bytes()
         for val in value:
             data += struct.pack("B", val)
-        _LOGGER.debug("Client writes to %s: data: %s hex: %s", self.chUuid, repr(data), to_hex_string(data))
-        self.connector.write_characteristic(self.cHandler, data)
+        _LOGGER.debug("Client writes to %s: data: %s hex: %s", self.uuid, repr(data), to_hex_string(data))
+        if self.connector:
+            self.connector.write_characteristic(self.handler, data)
         # TODO: implement write without return
 
     def startNotifyHandler(self):
-        self.connector.subscribe_for_notification(self.cHandler, self.notification_callback)
-        _LOGGER.debug("Client registered for notifications on %s [%#x]", self.chUuid, self.cHandler)
+        _LOGGER.debug("Client registering for notifications on %s [%#x]", self.uuid, self.handler)
+        if self.connector:
+            self.connector.subscribe_for_notification(self.handler, self.notification_callback)
 
     def stopNotifyHandler(self):
-        ret = self.connector.unsubscribe_from_notification(self.cHandler, self.notification_callback)
-        _LOGGER.debug("Client unregistered from notifications on %s [%#x] %s", self.chUuid, self.cHandler, ret)
+        if self.connector:
+            ret = self.connector.unsubscribe_from_notification(self.handler, self.notification_callback)
+            _LOGGER.debug("Client unregistered from notifications on %s [%#x] %s", self.uuid, self.handler, ret)
+        else:
+            _LOGGER.debug("Client unregistered from notifications on %s [%#x]", self.uuid, self.handler)
 
     def notification_callback(self, value):
-        _LOGGER.debug("Notification callback to client on %s data: %s", self.chUuid, repr(value))
+        _LOGGER.debug("Notification callback to client on %s data: %s", self.uuid, repr(value))
         self.send_notification(value)
 
     def send_notification(self, value):
@@ -127,7 +142,7 @@ class CharacteristicMock(Characteristic):
 
 
 class ServiceMock(Service):
-    def __init__(self, btService: ServiceData, bus, index, connector: ServiceConnector, listenMode):
+    def __init__(self, btService: ServiceData, bus, index, connector: ServiceConnector):
         btUuid = btService.uuid
         serviceUuid = str(btUuid)
 
@@ -135,13 +150,13 @@ class ServiceMock(Service):
 
         Service.__init__(self, bus, index, serviceUuid, True)
 
-        self._mock_characteristics(btService, bus, connector, listenMode)
+        self._mock_characteristics(btService, bus, connector)
 
-    def _mock_characteristics(self, btService: ServiceData, bus, connector: ServiceConnector, listenMode):
+    def _mock_characteristics(self, btService: ServiceData, bus, connector: ServiceConnector):
         charsList: List[CharacteristicData] = btService.getCharacteristics()
         charIndex = 0
         for btCh in charsList:
-            char = CharacteristicMock(btCh, bus, charIndex, self, connector, listenMode)
+            char = CharacteristicMock(btCh, bus, charIndex, self, connector)
             self.add_characteristic(char)
             charIndex += 1
 
@@ -149,43 +164,43 @@ class ServiceMock(Service):
 # ==================================================================
 
 
-class ConfigConnector(ServiceConnector):
-    def __init__(self, config_list):
-        self.config_list = config_list
-        self.value_dict = {}
-        # read values
-        for service_item in self.config_list:
-            chars_list = service_item.get("characteristics")
-            for _item, char_item in chars_list.items():
-                char_handle = char_item.get("handle")
-                self.value_dict[char_handle] = char_item.get("value")
-
-    def get_services(self) -> List[ServiceData]:
-        serviceList: List[ServiceData] = ServiceData.prepare_from_config(self.config_list)
-        return serviceList
-
-    def read_characteristic(self, handle):
-        return self.value_dict[handle]
-
-    def write_characteristic(self, handle, val):
-        self.value_dict[handle] = val
-
-    def subscribe_for_notification(self, handle, callback):
-        pass
-        # raise NotImplementedError()
-
-    def unsubscribe_from_notification(self, handle, callback):
-        pass
-        # raise NotImplementedError()
-
-    def _find_config_item(self, handle):
-        for service_item in self.config_list:
-            chars_list = service_item.get("characteristics")
-            for char_item in chars_list:
-                char_handle = char_item.get("handle")
-                if char_handle == handle:
-                    return char_item
-        return None
+# class ConfigConnector:
+#     def __init__(self, config_list):
+#         self.config_list = config_list
+#         self.value_dict = {}
+#         # read values
+#         for service_item in self.config_list:
+#             chars_list = service_item.get("characteristics")
+#             for _item, char_item in chars_list.items():
+#                 char_handle = char_item.get("handle")
+#                 self.value_dict[char_handle] = char_item.get("value")
+#
+#     def get_services(self) -> List[ServiceData]:
+#         serviceList: List[ServiceData] = ServiceData.prepare_from_config(self.config_list)
+#         return serviceList
+#
+#     def read_characteristic(self, handle):
+#         return self.value_dict[handle]
+#
+#     def write_characteristic(self, handle, val):
+#         self.value_dict[handle] = val
+#
+#     def subscribe_for_notification(self, handle, callback):
+#         pass
+#         # raise NotImplementedError()
+#
+#     def unsubscribe_from_notification(self, handle, callback):
+#         pass
+#         # raise NotImplementedError()
+#
+#     def _find_config_item(self, handle):
+#         for service_item in self.config_list:
+#             chars_list = service_item.get("characteristics")
+#             for char_item in chars_list:
+#                 char_handle = char_item.get("handle")
+#                 if char_handle == handle:
+#                     return char_item
+#         return None
 
 
 class ApplicationMock(Application):
@@ -206,26 +221,24 @@ class ApplicationMock(Application):
         gattObj = self.bus.get_object(BLUEZ_SERVICE_NAME, gatt_adapter)
         self.gattManager = dbus.Interface(gattObj, GATT_MANAGER_IFACE)
 
-    def clone_services(self, connector: ServiceConnector, listenMode: bool = False):
-        _LOGGER.debug("Getting services")
-        serviceList: List[ServiceData] = connector.get_services()
-        if serviceList is None:
-            _LOGGER.debug("Could not get list of services")
+    def configure_services(self, service_list: List[ServiceData], connector: ServiceConnector):
+        _LOGGER.info("Mocking services")
+        if service_list is None:
+            _LOGGER.warning("Could not get list of services")
             return False
 
-        _LOGGER.debug("Mocking services")
         serviceIndex = -1
-        for serv in serviceList:
+        for serv in service_list:
             uuid = serv.uuid
             ## "bluetoothctl show" to display active services
-            ##    00001800-0000-1000-8000-00805f9b34fb - Generic Access Profile 
+            ##    00001800-0000-1000-8000-00805f9b34fb - Generic Access Profile
             ##    00001801-0000-1000-8000-00805f9b34fb - Generic Attribute Profile
             if uuid in ("00001800-0000-1000-8000-00805f9b34fb", "00001801-0000-1000-8000-00805f9b34fb"):
                 ## causes Failed to register application: org.bluez.Error.Failed: Failed to create entry in database
                 _LOGGER.debug("Skipping service: %s", uuid)
                 continue
             serviceIndex += 1
-            service = ServiceMock(serv, self.bus, serviceIndex, connector, listenMode)
+            service = ServiceMock(serv, self.bus, serviceIndex, connector)
             self.add_service(service)
         return True
 
@@ -241,6 +254,7 @@ class ApplicationMock(Application):
         ## do nothing
         pass
 
+    ## useful when storing services to configuration file
     def get_services_config(self):
         services_data: List[ServiceData] = []
         for serv_item in self.services:

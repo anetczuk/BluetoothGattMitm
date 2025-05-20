@@ -215,7 +215,8 @@ class Advertiser:
             if self.sudo_mode:
                 cmd_list.append("sudo")
             cmd_list.extend(["hciconfig", self.iface, "noscan"])
-            subprocess.run(cmd_list,    # nosec
+            subprocess.run(  # nosec
+                cmd_list,
                 capture_output=True,  # Capture stdout and stderr
                 text=True,  # Decode the output as a string
                 check=True,

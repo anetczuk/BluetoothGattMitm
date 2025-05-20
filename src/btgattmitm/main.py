@@ -22,6 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
+from typing import Dict, Any, List
 
 try:
     ## following import success only when file is directly executed from command line
@@ -94,72 +95,74 @@ def configure_logger(logFile):
 ## clone_device: str - mac of device to connect to
 ## listenMode: bool - should subscribe for all notifications?
 def start_mitm(
-    interface: int, clone_device: str, listenMode, bt_name, bt_service_uuids, deviceconfig_path, dumpdevice_path,
-    sudo_mode
+    interface: int,
+    clone_device_mac: str,
+    bt_name: str,
+    bt_service_uuids: List[str],
+    device_config_path: str,
+    dump_device_path: str,
+    sudo_mode: bool,
 ):
     connection: AbstractConnector = None
-    device = None
+    mitm_service: MitmManager = None
     try:
-        device = MitmManager(iface_index=interface, sudo_mode=sudo_mode)
+        mitm_service = MitmManager(iface_index=interface, sudo_mode=sudo_mode)
 
-        device_config = None
-        if deviceconfig_path:
-            device_config = dataio.load_from(deviceconfig_path)
-            if clone_device is None:
-                clone_device = device_config.get("targetaddress", None)
+        device_config: Dict[str, Any] = {}
+        if device_config_path:
+            device_config = dataio.load_from(device_config_path)
 
-        if not device_config:
-            if clone_device is not None:
-                _LOGGER.info("cloning device: %s", clone_device)
-                
-                addr_type = None
-                if device_config:
-                    addr_type = device_config.get("addresstype")
-    
-                # connection = BleakConnector(btServiceAddress)
-                connection = BluepyConnector(clone_device, iface=interface, address_type=addr_type)
-    
-                valid_clone = device.configure_clone(connection, listenMode)
-                if valid_clone is False:
-                    _LOGGER.warning("unable to connect to device")
-                    return False
-            else:
-                _LOGGER.info("device cloning skipped")
+        if clone_device_mac is None:
+            clone_device_mac = device_config.get("targetaddress")
 
+        if clone_device_mac is not None:
+            addr_type = device_config.get("addresstype")
+
+            # connection = BleakConnector(btServiceAddress)
+            connection = BluepyConnector(clone_device_mac, iface=interface, address_type=addr_type)
         else:
-            if bt_name is None:
-                bt_name = device_config.get("name", None)
-            device.configure_config(device_config, listenMode)
+            _LOGGER.info("device connection skipped")
+
+        valid_clone = mitm_service.configure(connection, device_config)
+        if valid_clone is False:
+            _LOGGER.error("unable to configure device")
+            return False
+
+        if bt_name is None:
+            bt_name = device_config.get("name", None)
 
         if bt_name:
-            device.advertisement.set_local_name(bt_name)
+            if mitm_service.advertisement:
+                mitm_service.advertisement.set_local_name(bt_name)
         if bt_service_uuids:
-            device.advertisement.set_service_uuid_list(bt_service_uuids)
+            if mitm_service.advertisement:
+                mitm_service.advertisement.set_service_uuid_list(bt_service_uuids)
 
-        if dumpdevice_path:
-            _LOGGER.debug("Storing device configuration to %s", dumpdevice_path)
-            device_dump_config = {}
+        if dump_device_path:
+            _LOGGER.debug("Storing device configuration to %s", dump_device_path)
+            device_dump_config: Dict[str, Any] = {}
             if bt_name:
                 device_dump_config["name"] = bt_name
-            if clone_device:
-                device_dump_config["targetaddress"] = clone_device
+            if clone_device_mac:
+                device_dump_config["targetaddress"] = clone_device_mac
             device_dump_config["addresstype"] = connection.get_address_type()
-            device_dump_config["advertisement"] = device.get_adv_config()
-            device_dump_config["scanresponse"] = device.get_scanresp_config()
-            device_dump_config["services"] = device.get_services_config()
+            device_dump_config["advertisement"] = mitm_service.get_adv_config()
+            device_dump_config["scanresponse"] = mitm_service.get_scanresp_config()
+            device_dump_config["services"] = mitm_service.get_services_config()
 
             try:
-                dataio.dump_to(device_dump_config, dumpdevice_path)
+                dataio.dump_to(device_dump_config, dump_device_path)
             except Exception as exc:  # pylint: disable=W0703
                 _LOGGER.error(f"unable to store config: {exc}")
                 _LOGGER.info("data:\n%s", pprint.pformat(device_dump_config))
 
-        device.start()
+        ## start advertisement and notification listening
+        mitm_service.start()
 
     finally:
         _LOGGER.info("disconnecting application")
-        if device is not None:
-            device.stop()
+        if mitm_service is not None:
+            mitm_service.stop()
         if connection is not None:
             connection.disconnect()
         _LOGGER.info("application end")
@@ -205,13 +208,6 @@ def main():
         required=False,
         help="List of service UUIDs to advertise (override device)",
     )
-    parser.add_argument(
-        "--listen",
-        action="store_const",
-        const=True,
-        default=False,
-        help="Automatically subscribe for all notifications from service",
-    )
     parser.add_argument("--dumpdevice", action="store", required=False, help="Store device configuration to file")
     parser.add_argument(
         "--devicefromcfg",
@@ -219,11 +215,9 @@ def main():
         required=False,
         help="Load device configuration from file ('connect' not needed)",
     )
-    parser.add_argument("--sudo", 
-                        action="store_const",
-                        const=True,
-                        default=False, 
-                        help="Run termianal commands with sudo if required")
+    parser.add_argument(
+        "--sudo", action="store_const", const=True, default=False, help="Run termianal commands with sudo if required"
+    )
 
     args = parser.parse_args()
 
@@ -246,12 +240,11 @@ def main():
         valid = start_mitm(
             interface,
             args.connect,
-            args.listen,
             args.bt_name,
             args.bt_service_uuids,
             args.devicefromcfg,
             args.dumpdevice,
-            args.sudo
+            args.sudo,
         )
         if valid is False:
             exitCode = 1

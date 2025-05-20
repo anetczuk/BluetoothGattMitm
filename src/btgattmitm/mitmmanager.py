@@ -14,8 +14,8 @@ from gi.repository import GObject
 # import dbus
 import dbus.mainloop.glib
 
-from btgattmitm.connector import NotificationHandler, AbstractConnector, AdvertisementData
-from btgattmitm.gattmock import ApplicationMock, ConfigConnector
+from btgattmitm.connector import NotificationHandler, AbstractConnector, AdvertisementData, ServiceData
+from btgattmitm.gattmock import ApplicationMock
 from btgattmitm.advertisementmanager import AdvertisementManager
 
 # from btgattmitm.dbusobject.advertisement import DBusAdvertisementManager
@@ -35,7 +35,7 @@ class MitmManager:
         dbus.mainloop.glib.threads_init()
         dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
-        _LOGGER.debug("Initializing MITM manager")
+        _LOGGER.info("Initializing MITM manager")
 
         self.mainloop = None
 
@@ -53,67 +53,75 @@ class MitmManager:
         self.agent = None
         # self.agent = AgentManager(self.bus)
 
-    def configure_clone(self, connector: AbstractConnector, listenMode):
-        """Configure service by cloning BT device."""
-        _LOGGER.debug("Configuring MITM")
+    def configure(self, connector: AbstractConnector, device_config: Dict[str, Any]):
+        """Configure MITM service."""
+        _LOGGER.info("Configuring MITM")
 
         ## register advertisement
         if self.advertisement is not None:
-            _LOGGER.debug("Reading advertisement data")
-            adv_props_list: List[AdvertisementData] = connector.get_advertisement_data()
-            if adv_props_list is not None:
-                adv_data: AdvertisementData = adv_props_list[0]
-                _LOGGER.debug("Found advertisement data: %s", adv_data.get_props())
+            adv_data: AdvertisementData = None
+            scanresp_data: AdvertisementData = None
+            if device_config:
+                _LOGGER.info("Reading advertisement data from config")
+                adv_dict = device_config.get("advertisement", {})
+                adv_data = AdvertisementData(adv_dict)
                 self._configure_advertisement(adv_data)
-
-                scanresp_data: AdvertisementData = adv_props_list[1]
-                _LOGGER.debug("Found scan response data: %s", scanresp_data.get_props())
+                scanresp_dict = device_config.get("scanresponse", {})
+                scanresp_data = AdvertisementData(scanresp_dict)
                 self._configure_scanresponse(scanresp_data)
+            elif connector:
+                _LOGGER.info("Reading advertisement data from device")
+                adv_props_list: List[AdvertisementData] = connector.get_advertisement_data()
+                if adv_props_list is not None:
+                    adv_data = adv_props_list[0]
+                    _LOGGER.debug("Found advertisement data: %s", adv_data.get_props())
+                    self._configure_advertisement(adv_data)
+
+                    scanresp_data = adv_props_list[1]
+                    _LOGGER.debug("Found scan response data: %s", scanresp_data.get_props())
+                    self._configure_scanresponse(scanresp_data)
+                else:
+                    _LOGGER.warning("Unable to configure advertisement - missing device properties")
             else:
-                _LOGGER.debug("Unable to configure advertisement - missing device properties")
-
-        if self.gatt_application is not None:
-            _LOGGER.debug("Reading GATT data")
-            valid = self.gatt_application.clone_services(connector, listenMode)
-            if valid is False:
-                _LOGGER.warning("unable to connect to device")
-                return False
-
-        _LOGGER.debug("Setting notification handler")
-        if self._notificationHandler is not None:
-            self._notificationHandler.stop()
-        self._notificationHandler = NotificationHandler(connector)
-
-        return True
-
-    def configure_config(self, device_config, listenMode):
-        """Configure service based on config dict."""
-        _LOGGER.debug("Configuring device by config")
-
-        ## register advertisement
-        if self.advertisement is not None:
-            adv_dict = device_config.get("advertisement", {})
-            adv_data: AdvertisementData = AdvertisementData(adv_dict)
-            self._configure_advertisement(adv_data)
-            scanresp_dict = device_config.get("scanresponse", {})
-            scanresp_data: AdvertisementData = AdvertisementData(scanresp_dict)
-            self._configure_scanresponse(scanresp_data)
+                _LOGGER.warning("Unable to configure advertisement")
+        else:
+            _LOGGER.warning("Skipping advertisement")
 
         ## register services
         if self.gatt_application is not None:
-            services_dict = device_config.get("services", {})
-            services_list = services_dict.values()
-            services_list = list(services_list)
-            connector = ConfigConnector(services_list)
-            valid = self.gatt_application.clone_services(connector, listenMode)
-            if valid is False:
-                _LOGGER.warning("unable to configure services")
-                return False
+            service_list: List[ServiceData] = None
+            if device_config:
+                _LOGGER.info("Reading GATT services data from config")
+                services_dict = device_config.get("services", {})
+                services_data = services_dict.values()
+                services_data = list(services_data)
+                service_list = ServiceData.prepare_from_config(services_data)
+                if connector:
+                    connector.connect()
+                valid = self.gatt_application.configure_services(service_list, connector)
+                if valid is False:
+                    _LOGGER.warning("unable to configure services")
+                    return False
+            elif connector:
+                _LOGGER.info("Reading GATT services data from device")
+                service_list = connector.get_services()
+                valid = self.gatt_application.configure_services(service_list, connector)
+                if valid is False:
+                    _LOGGER.warning("unable to connect to device")
+                    return False
+            else:
+                _LOGGER.warning("Unable to configure GATT services")
+        else:
+            _LOGGER.warning("Skipping GATT services")
 
-        _LOGGER.debug("Setting notification handler")
+        ## configuring notification handler
         if self._notificationHandler is not None:
             self._notificationHandler.stop()
-        self._notificationHandler = NotificationHandler(connector)
+        if connector:
+            _LOGGER.info("Setting notification handler")
+            self._notificationHandler = NotificationHandler(connector)
+        else:
+            _LOGGER.warning("Skipping notification handler")
 
         return True
 

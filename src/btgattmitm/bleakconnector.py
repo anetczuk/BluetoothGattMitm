@@ -156,6 +156,9 @@ class BleakConnector(AbstractConnector):
     def get_address(self) -> str:
         return self.address
 
+    def get_address_type(self):
+        raise NotImplementedError()
+
     def get_advertisement_data(self) -> List[AdvertisementData]:
         if self._peripheral is None:
             return None
@@ -173,7 +176,7 @@ class BleakConnector(AbstractConnector):
         return [AdvertisementData(props)]
 
     def get_services(self) -> List[ServiceData]:
-        peripheral = self._connect()
+        peripheral = self.connect()
         if peripheral is None:
             return None
         services_list: List[ServiceData] = peripheral.getServices()
@@ -181,7 +184,7 @@ class BleakConnector(AbstractConnector):
         return services_list
 
     @synchronized
-    def _connect(self):
+    def connect(self):
         if self._peripheral is not None:
             return self._peripheral
 

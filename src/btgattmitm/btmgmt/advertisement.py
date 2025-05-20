@@ -64,8 +64,7 @@ class Advertiser:
                 return False
 
             _LOGGER.info("clearing old advertisings")
-            if self._run_btmgmt_cmd(["clr-adv"]) is False:
-                _LOGGER.warning("unable to clear advertisement")
+            self._run_btmgmt_cmd(["clr-adv"])
 
             bt_name = self.adv_data.get_name()
             if bt_name is not None:
@@ -86,7 +85,7 @@ class Advertiser:
             adv_data.add_adv(self.adv_data)
             data = adv_data.get_data()
             if data:
-                adv_command_data.append("-d")            ## set advertising data
+                adv_command_data.append("-d")  ## set advertising data
                 data = convert_to_btmgmt(data)
                 adv_command_data.append(data)
 
@@ -95,15 +94,15 @@ class Advertiser:
             scanresp_data.add_adv(self.scanresp_data)
             data = scanresp_data.get_data()
             if data:
-                adv_command_data.append("-s")            ## set scan response data
+                adv_command_data.append("-s")  ## set scan response data
                 data = convert_to_btmgmt(data)
                 adv_command_data.append(data)
 
-            adv_command_data.append("-c")                ## set connectable
+            adv_command_data.append("-c")  ## set connectable
 
-            adv_instance = "2"      ## have to be greater than 1
+            adv_instance = "2"  ## have to be greater than 1
 
-            adv_command_data.append(adv_instance)        ## set advertising instance
+            adv_command_data.append(adv_instance)  ## set advertising instance
 
             if self._run_btmgmt_cmd(adv_command_data) is False:
                 _LOGGER.error("unable to configure advertisement")
@@ -165,7 +164,7 @@ class Advertiser:
             _LOGGER.exception("exception occur during advertisement stop")
             return False
 
-    def _run_btmgmt_cmd(self, cmd_params: str|List[str] = None) -> bool:
+    def _run_btmgmt_cmd(self, cmd_params: str | List[str] = None) -> bool:
         if cmd_params is None:
             cmd_params = []
         if isinstance(cmd_params, str):
@@ -180,7 +179,7 @@ class Advertiser:
             return False
         return True
 
-    def _run_cmd(self, cmd_params: str|List[str] = None) -> bool:
+    def _run_cmd(self, cmd_params: str | List[str] = None):
         if cmd_params is None:
             cmd_params = []
         if isinstance(cmd_params, str):
@@ -261,9 +260,9 @@ class AdvertisementDataBuilder:
                 prop_id = hex(prop_key)
                 for service_uuid in prop_val:
                     service_uuid = service_uuid.replace("-", "")
-                    pairs = [service_uuid[i:i+2] for i in range(0, len(service_uuid), 2)]
+                    pairs = [service_uuid[i : i + 2] for i in range(0, len(service_uuid), 2)]
                     pairs.reverse()
-                    self.add_field(prop_id, pairs) 
+                    self.add_field(prop_id, pairs)
                 continue
 
             ## 0x08 - short device name

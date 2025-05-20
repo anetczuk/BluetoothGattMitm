@@ -25,10 +25,8 @@ _LOGGER = logging.getLogger(__name__)
 ADV_PROP_ID_TO_NAME_DICT = {
     ##    Incomplete List of 16-bit Service UUIDs
     0x02: "ServiceUUIDs",
-
     ##    Incomplete List of 128-bit Service UUIDs
     0x06: "ServiceUUIDs",
-
     #  ?: "SolicitUUIDs",
     #  ?: "Data"
     0x09: "LocalName",

@@ -5,7 +5,7 @@
 #
 
 import logging
-from typing import List
+from typing import List, Any
 
 import dbus.service
 
@@ -18,14 +18,14 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class Characteristic(dbus.service.Object):
-    def __init__(self, bus, index, uuid, flags, service):
-        self.path = service.path + "/char" + str(index)
+    def __init__(self, bus, index: int, uuid: str, flags, service):
         self.bus = bus
-        self.uuid = uuid
-        self.handler = index
         self.service = service
-        self.prop_flags = flags
-        self.descriptors = []
+        self.index: int = index
+        self.path: str = service.path + "/char" + str(index)
+        self.uuid: str = uuid
+        self.prop_flags: List[str] = flags
+        self.descriptors: List[Any] = []
         dbus.service.Object.__init__(self, bus, self.path)
 
     def get_properties_list(self) -> List[str]:
@@ -80,6 +80,8 @@ class Characteristic(dbus.service.Object):
         try:
             # pylint: disable=E1111
             value = self.readValueHandler()
+            if value is None:
+                return []
             # value = self._wrap(value)
             # _LOGGER.debug("Sending data to client: %s", repr(value))
             return value

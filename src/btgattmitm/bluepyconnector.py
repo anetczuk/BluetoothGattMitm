@@ -158,7 +158,7 @@ class BluepyConnector(AbstractConnector):
             scanner.scan(10.0)
         except btle.BTLEDisconnectError:
             _LOGGER.warning("device disconnected prematurely")
-        except:
+        except:  # noqa
             _LOGGER.error("exception occured while scanning devices")
             raise
         adv_data = delegate.get_adv_data()
@@ -166,7 +166,7 @@ class BluepyConnector(AbstractConnector):
         return [adv_data, scan_data]
 
     def get_services(self) -> List[ServiceData]:
-        peripheral = self._connect()
+        peripheral = self.connect()
         if peripheral is None:
             return None
         services_list = get_services_data(peripheral)
@@ -174,7 +174,7 @@ class BluepyConnector(AbstractConnector):
         return services_list
 
     @synchronized
-    def _connect(self) -> btle.Peripheral:
+    def connect(self) -> btle.Peripheral:
         if self._peripheral is not None:
             return self._peripheral
 
@@ -186,12 +186,10 @@ class BluepyConnector(AbstractConnector):
         for addr_type in addr_type_set:
             _LOGGER.debug(f"connecting to device {self.address} type: {addr_type}")
             try:
-                conn = btle.Peripheral()
-                conn.withDelegate(self.connectDelegate)
-                conn.connect(self.address, addrType=addr_type, iface=self.iface)
-                _LOGGER.debug("connected")
+                self._peripheral = btle.Peripheral()
+                self._peripheral.withDelegate(self.connectDelegate)
+                self._peripheral.connect(self.address, addrType=addr_type, iface=self.iface)
                 self.addressType = str(addr_type)
-                self._peripheral = conn
                 return self._peripheral
             except btle.BTLEException as ex:
                 self._peripheral = None
@@ -210,7 +208,11 @@ class BluepyConnector(AbstractConnector):
     def write_characteristic(self, handle: int, val):
         if self._peripheral is None:
             raise InvalidStateError("not connected")
-        self._peripheral.writeCharacteristic(handle, val)
+        try:
+            self._peripheral.writeCharacteristic(handle, val)
+        except:  # noqa
+            _LOGGER.error("error writing to characteristic: %#x %s", handle, val)
+            raise
 
     @synchronized
     def read_characteristic(self, handle):
@@ -252,7 +254,7 @@ class ConnectDelegate(btle.DefaultDelegate):
             _LOGGER.debug("Received new notification: %#x >%s<", cHandle, data)
             callbacks = self.callbacks.get(cHandle)
             if callbacks is None:
-                _LOGGER.debug("No callback found for notification handle: %#x", cHandle)
+                # _LOGGER.debug("No callback found for notification handle: %#x", cHandle)
                 return
             for function in callbacks:
                 if function is not None:

@@ -27,6 +27,7 @@ echo "black -- no warnings found"
 ## E126 continuation line over-indented for hanging indent
 ## E201 whitespace after '('
 ## E202 whitespace before ')'
+## E203 whitespace before ':'
 ## E221 multiple spaces before equal operator
 ## E241 multiple spaces after ':'
 ## E262 inline comment should start with '# '
@@ -37,7 +38,7 @@ echo "black -- no warnings found"
 ## W391 blank line at end of file
 ## W503 line break before binary operator (because of black)
 ## D    all docstyle checks
-ignore_errors=E115,E126,E201,E202,E221,E241,E262,E265,E266,E402,E501,W391,W503,D
+ignore_errors=E115,E126,E201,E202,E203,E221,E241,E262,E265,E266,E402,E501,W391,W503,D
 
 
 echo "running pycodestyle"
