@@ -18,7 +18,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class Application(dbus.service.Object):
-    PATH_BASE = "/org/bluez/example"
+    PATH_BASE = "/org/bluez/btmitmapp"
 
     """
     org.bluez.GattApplication1 interface implementation

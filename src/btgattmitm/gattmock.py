@@ -23,7 +23,7 @@
 #
 
 import logging
-from typing import List
+from typing import List, Dict, Any
 import struct
 
 # try:
@@ -58,7 +58,6 @@ class CharacteristicMock(Characteristic):
         chUuid = str(btUuid)
         cHandler = btCharacteristic.getHandle()
         flags = btCharacteristic.properties
-        # flags = self._get_flags(btCharacteristic)
 
         _LOGGER.debug(
             "Creating characteristic: %s[%s] h:%#x index:%#x flags: %s",
@@ -77,11 +76,13 @@ class CharacteristicMock(Characteristic):
 
         ## subscribe for notifications
         if self.connector:
-            ncount = flags.count("notify") + flags.count("indicate")
-            if ncount > 0:
-                self.startNotifyHandler()
-                # _LOGGER.debug("Subscribing for notification %s", chUuid)
-                # self.connector.subscribe_for_notification(self.handler, self._handle_notification)
+            if flags.count("notify") > 0:
+                _LOGGER.debug("Subscribing for notification %s", chUuid)
+                self.connector.subscribe_for_notification(self.handler, self.notification_callback)
+
+            if flags.count("indicate") > 0:
+                _LOGGER.debug("Subscribing for indication %s", chUuid)
+                self.connector.subscribe_for_indication(self.handler, self.indication_callback)
 
     # def _handle_notification(self, data):
     #     data = bytearray(data)
@@ -104,15 +105,23 @@ class CharacteristicMock(Characteristic):
         data = bytes()
         for val in value:
             data += struct.pack("B", val)
-        _LOGGER.debug("Client writes to %s: data: %s hex: %s", self.uuid, repr(data), to_hex_string(data))
-        if self.connector:
-            self.connector.write_characteristic(self.handler, data)
+        _LOGGER.debug(
+            "Client writes to %s [%#x]: data: %s hex: %s", self.uuid, self.handler, repr(data), to_hex_string(data)
+        )
         # TODO: implement write without return
 
     def startNotifyHandler(self):
-        _LOGGER.debug("Client registering for notifications on %s [%#x]", self.uuid, self.handler)
-        if self.connector:
+        ## notify has priority over indicate
+        if "notify" in self.prop_flags:
+            _LOGGER.debug("Client registering for notifications on %s [%#x]", self.uuid, self.handler)
+            if not self.connector:
+                return
             self.connector.subscribe_for_notification(self.handler, self.notification_callback)
+        else:
+            _LOGGER.debug("Client registering for indications on %s [%#x]", self.uuid, self.handler)
+            if not self.connector:
+                return
+            self.connector.subscribe_for_indication(self.handler, self.notification_callback)
 
     def stopNotifyHandler(self):
         if self.connector:
@@ -123,6 +132,10 @@ class CharacteristicMock(Characteristic):
 
     def notification_callback(self, value):
         _LOGGER.debug("Notification callback to client on %s data: %s", self.uuid, repr(value))
+        self.send_notification(value)
+
+    def indication_callback(self, value):
+        _LOGGER.debug("Indication callback to client on %s data: %s", self.uuid, repr(value))
         self.send_notification(value)
 
     def send_notification(self, value):
@@ -240,7 +253,20 @@ class ApplicationMock(Application):
             serviceIndex += 1
             service = ServiceMock(serv, self.bus, serviceIndex, connector)
             self.add_service(service)
+
+        ## subscribing for "Service Changed" indication
+        if connector:
+            char_handle = ServiceData.find_characteristic_handle(service_list, "00002a05-0000-1000-8000-00805f9b34fb")
+            if char_handle is not None:
+                _LOGGER.debug("Subscribing for indication of Service Changed")
+                connector.subscribe_for_indication(char_handle, self._service_changed_callback)
+        else:
+            _LOGGER.warning("Unable to listen to 'Service Changed' - no connection")
+
         return True
+
+    def _service_changed_callback(self):
+        _LOGGER.info("Service changed!!!")
 
     def register(self):
         if self.gattManager is None:
@@ -255,7 +281,7 @@ class ApplicationMock(Application):
         pass
 
     ## useful when storing services to configuration file
-    def get_services_config(self):
+    def get_services_config(self) -> Dict[str, Any]:
         services_data: List[ServiceData] = []
         for serv_item in self.services:
             serv_uuid = serv_item.uuid

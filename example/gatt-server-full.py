@@ -256,7 +256,7 @@ class HeartRateMeasurementChrc(Characteristic):
     HR_MSRMT_UUID = "00002a37-0000-1000-8000-00805f9b34fb"
 
     def __init__(self, bus, index, service):
-        Characteristic.__init__(self, bus, index, self.HR_MSRMT_UUID, ["notify"], service)
+        Characteristic.__init__(self, bus, index, self.HR_MSRMT_UUID, ["read", "indicate"], service)
         self.notifying = False
         self.hr_ee_count = 0
 

@@ -159,7 +159,7 @@ class BleakConnector(AbstractConnector):
     def get_address_type(self):
         raise NotImplementedError()
 
-    def get_advertisement_data(self) -> List[AdvertisementData]:
+    def get_advertisement_data(self) -> Dict[str, AdvertisementData]:
         if self._peripheral is None:
             return None
         bleak_props = self._peripheral.device_props
@@ -173,7 +173,7 @@ class BleakConnector(AbstractConnector):
         # props["ServiceUUIDs"] = bleak_props.get("UUIDs", [])
         # props["ManufacturerData"] = bleak_props.get("ManufacturerData", {})
         # props["ServiceData"] = bleak_props.get("ServiceData", {})
-        return [AdvertisementData(props)]
+        return {"adv": AdvertisementData(props)}
 
     def get_services(self) -> List[ServiceData]:
         peripheral = self.connect()

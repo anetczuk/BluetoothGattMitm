@@ -71,13 +71,13 @@ class MitmManager:
                 self._configure_scanresponse(scanresp_data)
             elif connector:
                 _LOGGER.info("Reading advertisement data from device")
-                adv_props_list: List[AdvertisementData] = connector.get_advertisement_data()
-                if adv_props_list is not None:
-                    adv_data = adv_props_list[0]
+                adv_props_dict: Dict[str, AdvertisementData] = connector.get_advertisement_data()
+                if adv_props_dict is not None:
+                    adv_data = adv_props_dict["adv"]
                     _LOGGER.debug("Found advertisement data: %s", adv_data.get_props())
                     self._configure_advertisement(adv_data)
 
-                    scanresp_data = adv_props_list[1]
+                    scanresp_data = adv_props_dict["scan"]
                     _LOGGER.debug("Found scan response data: %s", scanresp_data.get_props())
                     self._configure_scanresponse(scanresp_data)
                 else:
@@ -121,7 +121,7 @@ class MitmManager:
             _LOGGER.info("Setting notification handler")
             self._notificationHandler = NotificationHandler(connector)
         else:
-            _LOGGER.warning("Skipping notification handler")
+            _LOGGER.warning("Skipping notification handler - no connection")
 
         return True
 

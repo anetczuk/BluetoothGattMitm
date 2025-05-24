@@ -47,11 +47,18 @@ class Advertiser:
         try:
             _LOGGER.info("Starting advertisement")
 
-            ## enable BLE
-            _LOGGER.info("enabling BLE")
-            if self._run_btmgmt_cmd(["le", "on"]) is False:
-                _LOGGER.error("unable to start BLE advertisement")
-                return False
+            # _LOGGER.info("setting MAC address")
+            # device_mac = "DC:23:4F:DD:48:3E"
+            # # device_mac = "74:E5:F9:5E:C1:2F"
+            # self._run_btmgmt_cmd(["power", "off"])
+            # self._run_btmgmt_cmd(["public-addr", device_mac])
+            # self._run_btmgmt_cmd(["power", "on"])
+
+            # ## enable BLE
+            # _LOGGER.info("enabling BLE")
+            # if self._run_btmgmt_cmd(["le", "on"]) is False:
+            #     _LOGGER.error("unable to start BLE advertisement")
+            #     return False
 
             # ## disable "classic" device type
             # if self._run_btmgmt_cmd(["bredr", "off"]) is False:
@@ -63,8 +70,8 @@ class Advertiser:
                 _LOGGER.error("unable to configure advertisement")
                 return False
 
-            _LOGGER.info("clearing old advertisings")
-            self._run_btmgmt_cmd(["clr-adv"])
+            # _LOGGER.info("clearing old advertisings")
+            # self._run_btmgmt_cmd(["clr-adv"])
 
             bt_name = self.adv_data.get_name()
             if bt_name is not None:
@@ -81,21 +88,18 @@ class Advertiser:
             #     adv_command_data.append("-u")
             #     adv_command_data.extend(service_uuids)
 
-            adv_data = AdvertisementDataBuilder()
-            adv_data.add_adv(self.adv_data)
-            data = adv_data.get_data()
+            adv_data = self._prepare_adv_data()
+
+            ## set advertisement
+            data = adv_data[0]
             if data:
                 adv_command_data.append("-d")  ## set advertising data
-                data = convert_to_btmgmt(data)
                 adv_command_data.append(data)
 
             ## set scan response
-            scanresp_data = AdvertisementDataBuilder()
-            scanresp_data.add_adv(self.scanresp_data)
-            data = scanresp_data.get_data()
+            data = adv_data[1]
             if data:
                 adv_command_data.append("-s")  ## set scan response data
-                data = convert_to_btmgmt(data)
                 adv_command_data.append(data)
 
             adv_command_data.append("-c")  ## set connectable
@@ -108,33 +112,8 @@ class Advertiser:
                 _LOGGER.error("unable to configure advertisement")
                 return False
 
-            ## workaround for disabling privacy (random MAC)
-            ## because 'btmgmt' way seems not working:
-            ##   sudo btmgmt --index ${IFACE} power off
-            ##   sudo btmgmt --index ${IFACE} privacy off
-            ##   sudo btmgmt --index ${IFACE} power on
-            ## workaround is to call 'hcitool' directly
-            ### at least works, but better to disable privacy instead of setting MAC directly
-            _LOGGER.info("setting MAC address (prevent privacy)")
-            device_mac = find_mac_by_hci_iface(self.iface)
-            mac_bytes = device_mac.split(":")
-            mac_bytes.reverse()
-            cmd_list = ["hcitool", "-i", "hci0", "cmd", "0x08", "0x0035", adv_instance]
-            cmd_list.extend(mac_bytes)
-            result = self._run_cmd(cmd_list)
-            if result is None or result.returncode != 0:
-                _LOGGER.warning("unable to set MAC address")
+            if self._set_public_mac(adv_instance) is False:
                 return False
-
-            status_byte = parse_hcitool_output_status(result.stdout)
-            if status_byte is None:
-                _LOGGER.warning("unable to set MAC address")
-                return False
-            status = int(status_byte, 16)
-            if status == 0x00:
-                _LOGGER.info("static MAC address configured")
-            else:
-                _LOGGER.warning("unable to set MAC address, response status: %s", status)
 
             _LOGGER.info("Advertisement started")
             return True
@@ -163,6 +142,74 @@ class Advertiser:
         except Exception:  # pylint: disable=W0718
             _LOGGER.exception("exception occur during advertisement stop")
             return False
+
+    def _prepare_adv_data(self):
+        ret_adv_list = []
+        ret_scan_list = []
+
+        ## set advertisement data
+        adv_data_count = 0
+
+        adv_data_builder = AdvertisementDataBuilder()
+        adv_data_builder.add_adv(self.adv_data)
+        data = adv_data_builder.get_fields()
+        if data:
+            for item in data:
+                item = convert_to_btmgmt(item)
+                str_data = "".join(item)
+                curr_size = int(len(str_data) / 2)
+                ## put data to scan response if size exceeds limit
+                ## or when previous data was already added to scan response
+                if adv_data_count + curr_size < 31 and not ret_scan_list:
+                    adv_data_count += curr_size
+                    ret_adv_list.extend(item)
+                else:
+                    _LOGGER.warning("advertisement data size overflow - setting data as scan response")
+                    ret_scan_list.extend(item)
+
+        ## set scan response
+        scanresp_data_builder = AdvertisementDataBuilder()
+        scanresp_data_builder.add_adv(self.scanresp_data)
+        data = scanresp_data_builder.get_data()
+        if data:
+            data = convert_to_btmgmt(data)
+            ret_scan_list.extend(data)
+
+        ret_adv = "".join(ret_adv_list)
+        ret_scan = "".join(ret_scan_list)
+        return [ret_adv, ret_scan]
+
+    def _set_public_mac(self, adv_instance) -> bool:
+        ## workaround for disabling privacy (random MAC)
+        ## because 'btmgmt' way seems not working:
+        ##   sudo btmgmt --index ${IFACE} power off
+        ##   sudo btmgmt --index ${IFACE} privacy off
+        ##   sudo btmgmt --index ${IFACE} power on
+        ## workaround is to call 'hcitool' directly
+        ### at least works, but better to disable privacy instead of setting MAC directly
+        _LOGGER.info("setting MAC address (prevent privacy)")
+        device_mac = find_mac_by_hci_iface(self.iface)
+        # device_mac = "DC:23:4F:DD:48:3E"
+        mac_pairs = device_mac.split(":")
+        mac_pairs.reverse()
+        cmd_list = ["hcitool", "-i", "hci0", "cmd", "0x08", "0x0035", f"0{adv_instance}"]
+        cmd_list.extend(mac_pairs)
+        result = self._run_cmd(cmd_list)
+        if result is None or result.returncode != 0:
+            _LOGGER.warning("unable to set MAC address")
+            return False
+
+        status_byte = parse_hcitool_output_status(result.stdout)
+        if status_byte is None:
+            _LOGGER.warning("unable to set MAC address")
+            return False
+        status = int(status_byte, 16)
+        if status == 0x00:
+            _LOGGER.info("static MAC address configured")
+        else:
+            _LOGGER.warning("unable to set MAC address, response status: %s", status)
+
+        return True
 
     def _run_btmgmt_cmd(self, cmd_params: str | List[str] = None) -> bool:
         if cmd_params is None:
@@ -213,11 +260,16 @@ class Advertiser:
 class AdvertisementDataBuilder:
 
     def __init__(self):
-        self.data = []
+        self.fields_bytes = []
 
-    def get_data(self):
+    def get_fields(self):
+        return self.fields_bytes.copy()
+
+    ## returns list of hex numbers
+    def get_data(self) -> List[str]:
         ret_data = []
-        ret_data.extend(self.data)
+        for item in self.fields_bytes:
+            ret_data.extend(item)
         return ret_data
 
     def add_field_raw(self, data_string: str):
@@ -229,9 +281,11 @@ class AdvertisementDataBuilder:
     ## 'data_array' contains pairs of characters
     def add_field(self, type_byte: str, data_array: List[str]):
         data_len = len(data_array) + 1
-        self.data.append(hex(data_len))
-        self.data.append(type_byte)
-        self.data.extend(data_array)
+        data = []
+        data.append(hex(data_len))
+        data.append(type_byte)
+        data.extend(data_array)
+        self.fields_bytes.append(data)
 
     def add_text(self, type_byte: str, data_string: str):
         hex_list = [hex(ord(c)) for c in data_string]
@@ -328,7 +382,7 @@ def convert_to_btmgmt(data_list: List[str]):
             ret_data.append(f"0{item}")
         else:
             ret_data.append(item)
-    return "".join(ret_data)
+    return ret_data
 
 
 ## remove 0x prefix

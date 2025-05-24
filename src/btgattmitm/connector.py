@@ -141,6 +141,13 @@ class ServiceData:
         ret_data["characteristics"] = characteristic_data
         return ret_data
 
+    def find_handle(self, uuid: str) -> int:
+        chars_list: List[CharacteristicData] = self.getCharacteristics()
+        for char_item in chars_list:
+            if char_item.uuid == uuid:
+                return char_item.getHandle()
+        return None
+
     def print_data(self):
         _LOGGER.debug("Service: %s [%s]", self.uuid, self.getCommonName())
         chars_list = self.getCharacteristics()
@@ -163,7 +170,7 @@ class ServiceData:
             serv.print_data()
 
     @staticmethod
-    def dump_config(serv_list: "List[ServiceData]"):
+    def dump_config(serv_list: "List[ServiceData]") -> Dict[str, Any]:
         if not serv_list:
             return {}
         ret_data = {}
@@ -189,6 +196,14 @@ class ServiceData:
             ret_list.append(serv)
         return ret_list
 
+    @staticmethod
+    def find_characteristic_handle(service_list: List["ServiceData"], uuid: str) -> int:
+        for serv in service_list:
+            handle = serv.find_handle(uuid)
+            if handle is not None:
+                return handle
+        return None
+
 
 # =====================================================
 
@@ -204,6 +219,15 @@ class ServiceConnector:
         raise NotImplementedError()
 
     def unsubscribe_from_notification(self, handle, callback):
+        raise NotImplementedError()
+
+    def subscribe_for_indication(self, handle: int, callback):
+        raise NotImplementedError()
+
+    def unsubscribe_from_indication(self, handle: int, callback):
+        raise NotImplementedError()
+
+    def get_service_by_uuid(self, uuid: str):
         raise NotImplementedError()
 
 
@@ -225,7 +249,7 @@ class AbstractConnector(ServiceConnector):
 
     ## returns one of two AdvertisementData items
     ## first one is advertisement data, second is scan response data
-    def get_advertisement_data(self) -> List[AdvertisementData]:
+    def get_advertisement_data(self) -> Dict[str, AdvertisementData]:
         raise NotImplementedError()
 
     def get_services(self) -> List[ServiceData]:

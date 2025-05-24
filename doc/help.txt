@@ -1,7 +1,9 @@
 
-usage: main.py [-h] --iface IFACE [--connect CONNECT] [--bt-name BT_NAME]
-               [--bt-service-uuids [BT_SERVICE_UUIDS ...]] [--listen]
-               [--dumpdevice DUMPDEVICE] [--devicefromcfg DEVICEFROMCFG]
+usage: main.py [-h] --iface IFACE [--connectto CONNECTTO] [--noconnect]
+               [--addrtype ADDRTYPE] [--advname ADVNAME]
+               [--advserviceuuids [ADVSERVICEUUIDS ...]] [--sudo]
+               [--devicestorepath DEVICESTOREPATH]
+               [--deviceloadpath DEVICELOADPATH]
 
 Bluetooth GATT MITM
 
@@ -9,14 +11,15 @@ options:
   -h, --help            show this help message and exit
   --iface IFACE         Local adapter to use: integer (eg. 0), device name
                         (eg. hci0) or MAC address (eg. 00:11:22:33:44:55)
-  --connect CONNECT     BT address to connect to
-  --bt-name BT_NAME     Device name to advertise (override device)
-  --bt-service-uuids [BT_SERVICE_UUIDS ...]
+  --connectto CONNECTTO
+                        BT address to connect to
+  --noconnect           Do not connect even if 'connectto' passed
+  --addrtype ADDRTYPE   Address type to connect ('public' or 'random'
+  --advname ADVNAME     Device name to advertise (override device)
+  --advserviceuuids [ADVSERVICEUUIDS ...]
                         List of service UUIDs to advertise (override device)
-  --listen              Automatically subscribe for all notifications from
-                        service
-  --dumpdevice DUMPDEVICE
+  --sudo                Run terminal commands with sudo if required
+  --devicestorepath DEVICESTOREPATH
                         Store device configuration to file
-  --devicefromcfg DEVICEFROMCFG
-                        Load device configuration from file ('connect' not
-                        needed)
+  --deviceloadpath DEVICELOADPATH
+                        Load device configuration from file

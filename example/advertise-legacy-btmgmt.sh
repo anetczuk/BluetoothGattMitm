@@ -29,7 +29,7 @@ validate_btmgmt_iface "${IFACE}"
 
 INSTANCE=2
 
-ADV_DEV_NAME="TH09"
+ADV_DEV_NAME="TH0xyz"
 
 
 ### this does not work
@@ -53,6 +53,17 @@ ADV_DEV_NAME="TH09"
 # sudo hcitool -i hci0 cmd 0x08 0x0005   F6 E5 D4 C3 B2 A2
 
 
+DEVICE_MAC="11:22:33:44:55:66"
+
+if [[ "${DEVICE_MAC}" != "" ]]; then
+    echo "=== changing MAC ==="
+    echo "setting new mac address: ${DEVICE_MAC}"
+    sudo btmgmt --index ${IFACE} power off
+    sudo btmgmt --index ${IFACE} public-addr "${DEVICE_MAC}"
+    sudo btmgmt --index ${IFACE} power on
+fi
+
+
 echo "=== enabling advertising ==="
 sudo btmgmt --index ${IFACE} le on
 
@@ -62,7 +73,6 @@ sudo btmgmt --index ${IFACE} advertising off
 
 # echo "=== setting name ==="
 #sudo btmgmt --index ${IFACE} name "${ADV_DEV_NAME}"
-#sudo btmgmt --index ${IFACE} public-addr "${BT_DEVICE_MAC}"
 
 
 echo "=== setting adv ==="
@@ -74,6 +84,7 @@ adv_data=""
 adv_data=$(add_field_to_data "${adv_data}" "0x01 0x06")
 
 ## 0x09 - device name
+echo "advertising name: ${ADV_DEV_NAME}"
 hex_string=$(ascii_to_hex "${ADV_DEV_NAME}")
 adv_data=$(add_field_to_data "${adv_data}" "0x09 ${hex_string}")
 
@@ -120,8 +131,16 @@ echo "=== info ==="
 sudo btmgmt --index ${IFACE} info
 
 
-## at least works, but better to disable privacy instead of setting MAC directly
-sudo hcitool -i hci0 cmd 0x08 0x0035   02   F6 E5 D4 C3 B2 A1
+if [[ "${DEVICE_MAC}" != "" ]]; then
+    echo "=== setting public mac ==="
+    echo "setting new mac address: ${DEVICE_MAC}"
+    # at least works, but better to disable privacy instead of setting MAC directly
+    REVERSED_MAC=$(echo $DEVICE_MAC | tr ':' '\n' | tac | paste -sd' ' -)
+    ## important, MAC without quotes!
+    sudo hcitool -i hci0 cmd 0x08 0x0035   02   ${REVERSED_MAC}
+    
+    hcitool dev
+fi
 
 
 echo "completed"

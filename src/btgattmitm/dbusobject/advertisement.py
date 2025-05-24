@@ -44,7 +44,7 @@ SCANRESP_PROP_ID_TO_NAME_DICT = {
 
 
 class Advertisement(dbus.service.Object):
-    PATH_BASE = "/org/bluez/example/advertisement"
+    PATH_BASE = "/org/bluez/btmitmapp/advertisement"
 
     def __init__(self, bus, index, advertising_type):
         self.path = self.PATH_BASE + str(index)

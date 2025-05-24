@@ -24,7 +24,7 @@
 
 import struct
 import logging
-from typing import List
+from typing import List, Dict
 
 from bluepy import btle
 
@@ -96,12 +96,12 @@ def props_mask_to_list(char_item):
     return flagsList
 
 
-def get_services_data(peripheral) -> List[ServiceData]:
+def get_services_data(peripheral: btle.Peripheral) -> List[ServiceData]:
     _LOGGER.debug("getting services")
     services_list = peripheral.getServices()
     ret_list = []
     for serv in services_list:
-        serv_uuid = serv.uuid
+        serv_uuid = str(serv.uuid)
         serv_name = serv.uuid.getCommonName()
         _LOGGER.debug("Service: %s[%s]", serv_uuid, serv_name)
         serv_data = ServiceData(serv_uuid, serv_name)
@@ -110,7 +110,7 @@ def get_services_data(peripheral) -> List[ServiceData]:
         charsList = serv.getCharacteristics()
         for ch in charsList:
             _LOGGER.debug("Char: %s h:%#x p:%s", ch, ch.getHandle(), ch.propertiesToString())
-            char_uuid = ch.uuid
+            char_uuid = str(ch.uuid)
             char_name = ch.uuid.getCommonName()
             char_handle = ch.getHandle()
             char_props = props_mask_to_list(ch)
@@ -126,12 +126,12 @@ class BluepyConnector(AbstractConnector):
     """Deprecated connector based on bluepy."""
 
     ## iface: int - hci index
-    def __init__(self, mac, iface=None, address_type=None):
+    def __init__(self, mac: str, iface: int = None, address_type: str = None):
         super().__init__()
 
-        self.address = mac
-        self.addressType = address_type
-        self.iface = iface
+        self.address: str = mac
+        self.addressType: str = address_type
+        self.iface: int = iface
         self.callbacks = CallbackContainer()
         self.connectDelegate = ConnectDelegate(self.callbacks)
         self._peripheral: btle.Peripheral = None
@@ -145,11 +145,11 @@ class BluepyConnector(AbstractConnector):
     def get_address_type(self):
         return self.addressType
 
-    def get_advertisement_data(self) -> List[AdvertisementData]:
+    def get_advertisement_data(self) -> Dict[str, AdvertisementData]:
         return self._scan()
 
     @synchronized
-    def _scan(self):
+    def _scan(self) -> Dict[str, AdvertisementData]:
         _LOGGER.info("scanning device %s advertisement data using controller: %s", self.address, self.iface)
         delegate = ScanDelegate(self.address)
         scanner = btle.Scanner(iface=self.iface)
@@ -163,10 +163,10 @@ class BluepyConnector(AbstractConnector):
             raise
         adv_data = delegate.get_adv_data()
         scan_data = delegate.get_scan_data()
-        return [adv_data, scan_data]
+        return {"adv": adv_data, "scan": scan_data}
 
     def get_services(self) -> List[ServiceData]:
-        peripheral = self.connect()
+        peripheral: btle.Peripheral = self.connect()
         if peripheral is None:
             return None
         services_list = get_services_data(peripheral)
@@ -174,8 +174,8 @@ class BluepyConnector(AbstractConnector):
         return services_list
 
     @synchronized
-    def connect(self) -> btle.Peripheral:
-        if self._peripheral is not None:
+    def connect(self, reconnect=False) -> btle.Peripheral:
+        if self._peripheral is not None and reconnect is False:
             return self._peripheral
 
         if self.addressType == "public":
@@ -204,6 +204,14 @@ class BluepyConnector(AbstractConnector):
             self._peripheral.disconnect()
         self._peripheral = None
 
+    ## ================================================================================
+
+    @synchronized
+    def read_characteristic(self, handle):
+        if self._peripheral is None:
+            raise InvalidStateError("not connected")
+        return self._peripheral.readCharacteristic(handle)
+
     @synchronized
     def write_characteristic(self, handle: int, val):
         if self._peripheral is None:
@@ -213,12 +221,6 @@ class BluepyConnector(AbstractConnector):
         except:  # noqa
             _LOGGER.error("error writing to characteristic: %#x %s", handle, val)
             raise
-
-    @synchronized
-    def read_characteristic(self, handle):
-        if self._peripheral is None:
-            raise InvalidStateError("not connected")
-        return self._peripheral.readCharacteristic(handle)
 
     @synchronized
     def subscribe_for_notification(self, handle: int, callback):
@@ -232,6 +234,30 @@ class BluepyConnector(AbstractConnector):
         ret = self.write_characteristic(handle, data)
         self.callbacks.unregister(handle, callback)
         return ret
+
+    @synchronized
+    def subscribe_for_indication(self, handle: int, callback):
+        data = struct.pack("BB", 2, 0)
+        self.write_characteristic(handle, data)
+        self.callbacks.register(handle, callback)
+
+    @synchronized
+    def unsubscribe_from_indication(self, handle: int, callback):
+        data = struct.pack("BB", 0, 0)
+        ret = self.write_characteristic(handle, data)
+        self.callbacks.unregister(handle, callback)
+        return ret
+
+    def get_service_by_uuid(self, uuid: str):
+        if self._peripheral is None:
+            raise InvalidStateError("not connected")
+        try:
+            return self._peripheral.getServiceByUUID(uuid)
+        except btle.BTLEGattError:
+            _LOGGER.warning("service %s not found", uuid)
+            return None
+
+    ## ================================================================================
 
     @synchronized
     def process_notifications(self):
@@ -274,6 +300,8 @@ class ScanDelegate(btle.DefaultDelegate):
         if mac_filter:
             mac_filter = mac_filter.lower()
         self.mac_filter = mac_filter
+
+        self.addr_type: str = None  # public or random
         self.adv_dict = AdvertisementData()
         self.scan_dict = AdvertisementData()
 
@@ -307,7 +335,7 @@ class ScanDelegate(btle.DefaultDelegate):
         )
         if isNewDev:
             ## advertisement data
-            # self.adv_dict.address_type = scanEntry.addrType
+            self.addr_type = scanEntry.addrType
             for adtype, desc, value in scanEntry.getScanData():
                 _LOGGER.debug(f"  {desc} ({adtype}) = {value}")
                 ScanDelegate.append_to_dict(self.adv_dict, adtype, value)

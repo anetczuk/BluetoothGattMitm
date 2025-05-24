@@ -102,6 +102,7 @@ class Characteristic(dbus.service.Object):
             logging.exception("Exception occured")
             raise
 
+    ## dbus uses it for for both notifications and indications
     @dbus.service.method(GATT_CHRC_IFACE)
     def StartNotify(self):
         try:

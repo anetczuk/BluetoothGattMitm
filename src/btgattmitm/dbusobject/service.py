@@ -20,7 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class Service(dbus.service.Object):
-    PATH_BASE = "/org/bluez/example/service"
+    PATH_BASE = "/org/bluez/btmitmapp/service"
 
     def __init__(self, bus, index, uuid, primary):
         self.path = self.PATH_BASE + str(index)
