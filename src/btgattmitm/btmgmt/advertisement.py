@@ -340,14 +340,15 @@ class AdvertisementDataBuilder:
             ## 0x16 - Service data
             if prop_key == 0x16:
                 prop_id = hex(prop_key)
+                ## service_data - contains hex numbers (without prefixes) in single string
                 for service_id, service_data in prop_val.items():
+                    bytes_list = list(bytes.fromhex(service_data))
+                    data_str_list = [f"{item:02x}" for item in bytes_list]
                     service_num = int(service_id, 16)
                     service_id_list = int_to_hex_list(service_num)
-
                     self.add_field("0x02", service_id_list)
-                    data_str = [hex(item) for item in service_data]
                     data_list = service_id_list
-                    data_list.extend(data_str)
+                    data_list.extend(data_str_list)
                     self.add_field(prop_id, data_list)
                 continue
 
@@ -355,10 +356,11 @@ class AdvertisementDataBuilder:
             if prop_key == 0xFF:
                 prop_id = hex(prop_key)
                 for manu_id, manu_data in prop_val.items():
+                    bytes_list = list(bytes.fromhex(manu_data))
+                    data_str_list = [f"{item:02x}" for item in bytes_list]
                     manu_id_list = int_to_hex_list(manu_id)
-                    data_str = [hex(item) for item in manu_data]
                     data_list = manu_id_list
-                    data_list.extend(data_str)
+                    data_list.extend(data_str_list)
                     self.add_field(prop_id, data_list)
                 continue
 

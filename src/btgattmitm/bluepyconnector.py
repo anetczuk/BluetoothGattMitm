@@ -385,9 +385,8 @@ class ScanDelegate(btle.DefaultDelegate):
             data_id = value[:4]
             data_id = data_id[2:4] + data_id[0:2]
             data_str = value[4:]
-            bytes_list = list(bytes.fromhex(data_str))
             data_container = data_dict.get_prop(adtype, {})
-            data_container[data_id] = bytes_list
+            data_container[data_id] = data_str
             data_dict.set_prop(adtype, data_container)
 
         ## Manufacturer
@@ -397,9 +396,8 @@ class ScanDelegate(btle.DefaultDelegate):
             data_id = data_id[2:4] + data_id[0:2]
             data_id = int(data_id, 16)
             data_str = value[4:]
-            bytes_list = list(bytes.fromhex(data_str))
             data_container = data_dict.get_prop(adtype, {})
-            data_container[data_id] = bytes_list
+            data_container[data_id] = data_str
             data_dict.set_prop(adtype, data_container)
 
         else:
