@@ -40,10 +40,7 @@ def is_mac_address(data):
     return bool(pattern.match(data))
 
 
-## get device name (eg. hci0) using MAC address
-def find_hci_iface_by_mac(mac_address) -> str:
-    mac_address = mac_address.replace("-", ":")
-
+def get_hci_ifaces() -> List[List[str]]:
     cmd_list = ["hcitool", "dev"]
     result = subprocess.run(  # nosec
         cmd_list,
@@ -62,6 +59,18 @@ def find_hci_iface_by_mac(mac_address) -> str:
 
     dev_lines = [item.strip() for item in dev_lines]
     name_mac_list: List[List[str]] = [item.split() for item in dev_lines]
+    name_mac_list = list(filter(None, name_mac_list))  ## remove empty elements
+    return name_mac_list
+
+
+## get device name (eg. hci0) using MAC address
+def find_hci_iface_by_mac(mac_address) -> str:
+    name_mac_list: List[List[str]] = get_hci_ifaces()
+    if len(name_mac_list) < 1:
+        _LOGGER.warning("no devices found")
+        return None
+
+    mac_address = mac_address.replace("-", ":")
 
     for item in name_mac_list:
         if not item:
@@ -69,32 +78,18 @@ def find_hci_iface_by_mac(mac_address) -> str:
         if item[1] == mac_address:
             return item[0]
 
-    _LOGGER.warning("unable to find device by MAC, raw output:\n%s", stdout)
+    _LOGGER.warning("unable to find device by MAC")
     return None
 
 
-## get MAC address using device name (eg. hci0)
+## get MAC address using device name (eg. 0 for hci0)
 def find_mac_by_hci_iface(hci_iface_index: int) -> str:
-    cmd_list = ["hcitool", "dev"]
-    result = subprocess.run(  # nosec
-        cmd_list,
-        capture_output=True,  # Capture stdout and stderr
-        text=True,  # Decode the output as a string
-        check=True,
-    )
-
-    stdout = result.stdout
-
-    out_list = stdout.split("\n")
-    dev_lines = out_list[1:]
-    if len(dev_lines) < 1:
-        _LOGGER.warning("no devices found, raw output:\n%s", stdout)
+    name_mac_list: List[List[str]] = get_hci_ifaces()
+    if len(name_mac_list) < 1:
+        _LOGGER.warning("no devices found")
         return None
 
     dev_name = f"hci{hci_iface_index}"
-
-    dev_lines = [item.strip() for item in dev_lines]
-    name_mac_list: List[List[str]] = [item.split() for item in dev_lines]
 
     for item in name_mac_list:
         if not item:
@@ -104,7 +99,7 @@ def find_mac_by_hci_iface(hci_iface_index: int) -> str:
             found_mac = found_mac.replace("-", ":")
             return found_mac
 
-    _LOGGER.warning("unable to find device by MAC, raw output:\n%s", stdout)
+    _LOGGER.warning("unable to find device by hci name")
     return None
 
 

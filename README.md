@@ -33,10 +33,10 @@ Program options:
 
 ```
 
-usage: main.py [-h] --iface IFACE [--connectto CONNECTTO] [--noconnect]
+usage: main.py [-h] [--iface IFACE] [--connectto CONNECTTO] [--noconnect]
                [--addrtype ADDRTYPE] [--advname ADVNAME]
                [--advserviceuuids [ADVSERVICEUUIDS ...]] [--sudo]
-               [--devicestorepath DEVICESTOREPATH]
+               [--changemac [CHANGEMAC]] [--devicestorepath DEVICESTOREPATH]
                [--deviceloadpath DEVICELOADPATH]
 
 Bluetooth GATT MITM
@@ -53,6 +53,9 @@ options:
   --advserviceuuids [ADVSERVICEUUIDS ...]
                         List of service UUIDs to advertise (override device)
   --sudo                Run terminal commands with sudo if required
+  --changemac [CHANGEMAC]
+                        Change MAC address: boolean(True or False) or target
+                        MAC address
   --devicestorepath DEVICESTOREPATH
                         Store device configuration to file
   --deviceloadpath DEVICELOADPATH

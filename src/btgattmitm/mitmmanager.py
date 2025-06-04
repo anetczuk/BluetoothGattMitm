@@ -29,7 +29,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class MitmManager:
-    def __init__(self, iface_index=0, sudo_mode=False):
+    def __init__(self, iface_index: int = 0, sudo_mode=False, change_mac: str = None):
         ## required for Python threading to work
         GObject.threads_init()
         dbus.mainloop.glib.threads_init()
@@ -46,7 +46,7 @@ class MitmManager:
         self.gatt_application = ApplicationMock(self.bus)
 
         self.advertisement: AdvertisementManager = None
-        self.advertisement = BtmgmtAdvertisementManager(iface_index, sudo_mode=sudo_mode)
+        self.advertisement = BtmgmtAdvertisementManager(iface_index, sudo_mode=sudo_mode, change_mac=change_mac)
         # self.advertisement = HciToolAdvertisementManager(iface_index, sudo_mode=sudo_mode)
         # self.advertisement = DBusAdvertisementManager(self.bus, iface_index)
 

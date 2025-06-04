@@ -49,7 +49,7 @@ from btgattmitm.bluepyconnector import BluepyConnector
 
 from btgattmitm.mitmmanager import MitmManager
 
-from btgattmitm.hcitool.advertisement import is_mac_address, find_hci_iface_by_mac
+from btgattmitm.hcitool.advertisement import is_mac_address, find_hci_iface_by_mac, get_hci_ifaces
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -99,20 +99,26 @@ def start_mitm(args: Dict[str, Any]):
     advname: str = args["advname"]
     advserviceuuids: List[str] = args["advserviceuuids"]
     sudo_mode: bool = args["sudo"]
+    change_mac: str = args["changemac"]
     devicestorepath: str = args["devicestorepath"]
     deviceloadpath: str = args["deviceloadpath"]
 
     connection: AbstractConnector = None
     mitm_service: MitmManager = None
     try:
-        mitm_service = MitmManager(iface_index=iface, sudo_mode=sudo_mode)
-
         device_config: Dict[str, Any] = {}
         if deviceloadpath:
             device_config = dataio.load_from(deviceloadpath)
 
         if connectto is None:
             connectto = device_config.get("connectto")
+
+        if change_mac == "False":
+            change_mac = None
+        elif change_mac == "True":
+            change_mac = connectto
+
+        mitm_service = MitmManager(iface_index=iface, sudo_mode=sudo_mode, change_mac=change_mac)
 
         if noconnect is False and connectto is not None:
             if addrtype is None:
@@ -198,7 +204,8 @@ def main():
     parser.add_argument(
         "--iface",
         action="store",
-        required=True,
+        required=False,
+        default="hci0",
         help="Local adapter to use: integer (eg. 0), device name (eg. hci0) or MAC address (eg. 00:11:22:33:44:55)",
     )
     parser.add_argument("--connectto", action="store", required=False, help="BT address to connect to")
@@ -218,6 +225,13 @@ def main():
     )
     parser.add_argument(
         "--sudo", action="store_const", const=True, default=False, help="Run terminal commands with sudo if required"
+    )
+    parser.add_argument(
+        "--changemac",
+        nargs="?",
+        default=None,
+        const=True,
+        help="Change MAC address: boolean(True or False) or target MAC address",
     )
     parser.add_argument("--devicestorepath", action="store", required=False, help="Store device configuration to file")
     parser.add_argument(
@@ -240,10 +254,16 @@ def main():
     exitCode = 0
 
     try:
-        args.iface = find_iface_index(args.iface)
-        if args.iface is None:
-            _LOGGER.error("unable to found adapter index by %s", args.iface)
-            sys.exit(exitCode)
+        name_mac_list: List[List[str]] = get_hci_ifaces()
+        if len(name_mac_list) == 1:
+            args.iface = name_mac_list[0][0]
+            args.iface = args.iface[3:]
+        else:
+            args.iface = find_iface_index(args.iface)
+            if args.iface is None:
+                _LOGGER.error("unable to found adapter index by %s", args.iface)
+                sys.exit(exitCode)
+
         _LOGGER.info("Found adapter index: %s", args.iface)
 
         args_dict = vars(args)

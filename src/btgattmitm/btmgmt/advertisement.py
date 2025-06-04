@@ -42,17 +42,17 @@ class Advertiser:
         self.adv_data = AdvertisementData()
         self.scanresp_data = AdvertisementData()
         self.sudo_mode = False
+        self.change_mac: str = None
 
     def advertise(self) -> bool:
         try:
             _LOGGER.info("Starting advertisement")
 
-            # _LOGGER.info("setting MAC address")
-            # device_mac = "DC:23:4F:DD:48:3E"
-            # # device_mac = "74:E5:F9:5E:C1:2F"
-            # self._run_btmgmt_cmd(["power", "off"])
-            # self._run_btmgmt_cmd(["public-addr", device_mac])
-            # self._run_btmgmt_cmd(["power", "on"])
+            if self.change_mac:
+                _LOGGER.info("setting MAC address to %s", self.change_mac)
+                self._run_btmgmt_cmd(["power", "off"])
+                self._run_btmgmt_cmd(["public-addr", self.change_mac])
+                self._run_btmgmt_cmd(["power", "on"])
 
             # ## enable BLE
             # _LOGGER.info("enabling BLE")
@@ -189,7 +189,6 @@ class Advertiser:
         ### at least works, but better to disable privacy instead of setting MAC directly
         _LOGGER.info("setting MAC address (prevent privacy)")
         device_mac = find_mac_by_hci_iface(self.iface)
-        # device_mac = "DC:23:4F:DD:48:3E"
         mac_pairs = device_mac.split(":")
         mac_pairs.reverse()
         cmd_list = ["hcitool", "-i", "hci0", "cmd", "0x08", "0x0035", f"0{adv_instance}"]
@@ -403,9 +402,10 @@ def remove_hex_prefix(data_list: List[str]):
 
 class BtmgmtAdvertisementManager(AdvertisementManager):
 
-    def __init__(self, hci_iface_index: int, sudo_mode: bool = False):
+    def __init__(self, hci_iface_index: int, sudo_mode: bool = False, change_mac: str = None):
         self.adv = Advertiser(hci_iface_index)
         self.adv.sudo_mode = sudo_mode
+        self.adv.change_mac = change_mac
 
     ## configuration of service
     def initialize(self):
