@@ -451,6 +451,7 @@ class TestDescriptor(Descriptor):
 
     def ReadValue(self, _):
         # def ReadValue(self, options):
+        print("Reading value from", type(self))
         return [dbus.Byte("T"), dbus.Byte("e"), dbus.Byte("s"), dbus.Byte("t")]
 
 
@@ -467,12 +468,14 @@ class CharacteristicUserDescriptionDescriptor(Descriptor):
 
     def ReadValue(self, _):
         # def ReadValue(self, options):
+        print("Reading value from", type(self))
         return self.value
 
     def WriteValue(self, value, _):
         # def WriteValue(self, value, options):
         if not self.writable:
             raise NotPermittedException()
+        print("Writing value to", type(self))
         self.value = value
 
 
@@ -508,6 +511,7 @@ class TestEncryptDescriptor(Descriptor):
 
     def ReadValue(self, _):
         # def ReadValue(self, options):
+        print("Reading value from", type(self))
         return [dbus.Byte("T"), dbus.Byte("e"), dbus.Byte("s"), dbus.Byte("t")]
 
 
@@ -543,6 +547,7 @@ class TestSecureDescriptor(Descriptor):
 
     def ReadValue(self, _):
         # def ReadValue(self, options):
+        print("Reading value from", type(self))
         return [dbus.Byte("T"), dbus.Byte("e"), dbus.Byte("s"), dbus.Byte("t")]
 
 

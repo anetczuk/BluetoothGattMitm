@@ -79,6 +79,7 @@ class CharacteristicData:
         self._common_name: str = char_name
         self._handle: int = char_handle
         self._props_list: List[str] = char_props
+        self._descriptors: List[Dict[str, Any]] = []
 
     @property
     def uuid(self):
@@ -96,6 +97,12 @@ class CharacteristicData:
     def getHandle(self):
         return self._handle
 
+    def get_descriptors(self):
+        return list(self._descriptors)
+
+    def add_descriptor(self, desc_uuid: str, desc_handle: int):
+        self._descriptors.append({"uuid": desc_uuid, "handle": desc_handle})
+
     def get_data(self):
         ret_data = {}
         ret_data["name"] = self._common_name
@@ -103,6 +110,11 @@ class CharacteristicData:
         ret_data["handle"] = self._handle
         ret_data["properties"] = self._props_list
         ret_data["value"] = 0
+        descriptors_data = []
+        # char_item: DescriptorData
+        for desc_item in self._descriptors:
+            descriptors_data.append(desc_item)
+        ret_data["descriptors"] = descriptors_data
         return ret_data
 
 
@@ -126,9 +138,12 @@ class ServiceData:
 
     # handle: int, example: 61
     # properties: List[str], example: ["write-without-response", "write"]
-    def add_characteristic(self, char_uuid: str, char_name: str, char_handle: int, char_props: List[str]):
+    def add_characteristic(
+        self, char_uuid: str, char_name: str, char_handle: int, char_props: List[str]
+    ) -> CharacteristicData:
         char_data = CharacteristicData(char_uuid, char_name, char_handle, char_props)
         self._chars_list.append(char_data)
+        return char_data
 
     def get_data(self):
         ret_data = {}
@@ -159,6 +174,9 @@ class ServiceData:
                 char_item.getHandle(),
                 char_item.properties,
             )
+            desc_list = char_item.get_descriptors()
+            for desc_item in desc_list:
+                _LOGGER.debug("    Desc: %s h:%#x", desc_item[0], desc_item[1])
 
     @staticmethod
     def print_services(serv_list: "List[ServiceData]"):
@@ -192,7 +210,12 @@ class ServiceData:
                 char_name = char_cfg.get("name")
                 char_handle = char_cfg.get("handle")
                 char_props = char_cfg.get("properties")
-                serv.add_characteristic(char_uuid, char_name, char_handle, char_props)
+                char = serv.add_characteristic(char_uuid, char_name, char_handle, char_props)
+                descs_cfg_list = char_cfg.get("descriptors", [])
+                for desc_cfg in descs_cfg_list:
+                    desc_uuid = desc_cfg["uuid"]
+                    desc_handle = desc_cfg["handle"]
+                    char.add_descriptor(desc_uuid, desc_handle)
             ret_list.append(serv)
         return ret_list
 
@@ -212,7 +235,7 @@ class ServiceConnector:
     def read_characteristic(self, handle):
         raise NotImplementedError()
 
-    def write_characteristic(self, handle, val):
+    def write_characteristic(self, handle, val, withResponse=False):
         raise NotImplementedError()
 
     def subscribe_for_notification(self, handle, callback):

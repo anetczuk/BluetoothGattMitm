@@ -33,7 +33,7 @@ import struct
 import dbus
 
 from btgattmitm.dbusobject.service import Service
-from btgattmitm.dbusobject.characteristic import Characteristic
+from btgattmitm.dbusobject.characteristic import Characteristic, Descriptor
 from btgattmitm.constants import GATT_CHRC_IFACE, BLUEZ_SERVICE_NAME, GATT_MANAGER_IFACE
 from btgattmitm.connector import ServiceData, ServiceConnector, CharacteristicData
 from btgattmitm.dbusobject.application import Application
@@ -47,6 +47,44 @@ def to_hex_string(data):
     if isinstance(data, bytes):
         return data.hex()
     return " ".join("0x{:02X}".format(x) for x in data)
+
+
+class DescriptorMock(Descriptor):
+
+    def __init__(self, descriptorItem: Dict[str, Any], bus, index, flags, characteristic, connector: ServiceConnector):
+        dUuid = descriptorItem["uuid"]
+        dHandle = descriptorItem["handle"]
+        _LOGGER.debug(
+            "Creating descriptor: %s h:%#x index:%#x flags: %s",
+            dUuid,
+            dHandle,
+            index,
+            flags,
+        )
+        Descriptor.__init__(self, bus, index, dUuid, flags, characteristic)
+
+        self.connector = connector
+        self.handler = dHandle
+
+    def ReadValue(self, _options):
+        _LOGGER.debug("Client read request from %s [%#x]", self.uuid, self.handler)
+        if self.connector is None:
+            return []
+        data = self.connector.read_characteristic(self.handler)
+        if isinstance(data, int):
+            data = [data]
+        _LOGGER.debug("Client reads from %s: data: %s hex: %s", self.uuid, repr(data), to_hex_string(data))
+        return data
+
+    def WriteValue(self, value, _options):
+        ## convert 'dbus.Array' to bytes
+        data = bytes()
+        for val in value:
+            data += struct.pack("B", val)
+        _LOGGER.debug(
+            "Client writes to %s [%#x]: data: %s hex: %s", self.uuid, self.handler, repr(data), to_hex_string(data)
+        )
+        # TODO: implement write without return
 
 
 class CharacteristicMock(Characteristic):
@@ -74,6 +112,8 @@ class CharacteristicMock(Characteristic):
         self.connector: ServiceConnector = connector
         self.handler = cHandler
 
+        self._mock_descriptors(btCharacteristic, bus, connector)
+
         ## subscribe for notifications
         if self.connector:
             if flags.count("notify") > 0:
@@ -88,8 +128,22 @@ class CharacteristicMock(Characteristic):
     #     data = bytearray(data)
     #     _LOGGER.debug("Received char %s notification data: [%s]", chUuid, to_hex_string(data))
 
+    def _mock_descriptors(self, btCharacteristic: CharacteristicData, bus, connector: ServiceConnector):
+        desc_list = btCharacteristic.get_descriptors()
+        descIndex = 0
+        for desc_item in desc_list:
+            dUuid = desc_item["uuid"]
+            ## 00002902-0000-1000-8000-00805f9b34fb - Client Characteristic Configuration Descriptor
+            if dUuid in ("00002902-0000-1000-8000-00805f9b34fb"):
+                ## prevent/disable registering default/system descriptor
+                ## because it won't work properly
+                _LOGGER.debug("Skipping default descriptor: %s", dUuid)
+                continue
+            desc = DescriptorMock(desc_item, bus, descIndex, ["read", "write"], self, connector)
+            self.add_descriptor(desc)
+            descIndex += 1
+
     def readValueHandler(self):
-        _LOGGER.debug("Client read request from %s", self.uuid)
         if self.connector is None:
             return None
         data = self.connector.read_characteristic(self.handler)
@@ -101,6 +155,8 @@ class CharacteristicMock(Characteristic):
         return data
 
     def writeValueHandler(self, value):
+        if self.connector is None:
+            return
         ## convert 'dbus.Array' to bytes
         data = bytes()
         for val in value:
@@ -108,19 +164,19 @@ class CharacteristicMock(Characteristic):
         _LOGGER.debug(
             "Client writes to %s [%#x]: data: %s hex: %s", self.uuid, self.handler, repr(data), to_hex_string(data)
         )
-        # TODO: implement write without return
+        self.connector.write_characteristic(self.handler, data, withResponse=False)
 
     def startNotifyHandler(self):
         ## notify has priority over indicate
         if "notify" in self.prop_flags:
-            _LOGGER.debug("Client registering for notifications on %s [%#x]", self.uuid, self.handler)
             if not self.connector:
                 return
+            _LOGGER.debug("Client registering for notifications on %s [%#x]", self.uuid, self.handler)
             self.connector.subscribe_for_notification(self.handler, self.notification_callback)
         else:
-            _LOGGER.debug("Client registering for indications on %s [%#x]", self.uuid, self.handler)
             if not self.connector:
                 return
+            _LOGGER.debug("Client registering for indications on %s [%#x]", self.uuid, self.handler)
             self.connector.subscribe_for_indication(self.handler, self.notification_callback)
 
     def stopNotifyHandler(self):
@@ -247,6 +303,7 @@ class ApplicationMock(Application):
             ##    00001800-0000-1000-8000-00805f9b34fb - Generic Access Profile
             ##    00001801-0000-1000-8000-00805f9b34fb - Generic Attribute Profile
             if uuid in ("00001800-0000-1000-8000-00805f9b34fb", "00001801-0000-1000-8000-00805f9b34fb"):
+                ## prevent/disable registering default/system services
                 ## causes Failed to register application: org.bluez.Error.Failed: Failed to create entry in database
                 _LOGGER.debug("Skipping service: %s", uuid)
                 continue

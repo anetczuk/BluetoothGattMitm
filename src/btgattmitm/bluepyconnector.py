@@ -91,8 +91,7 @@ def props_mask_to_list(char_item):
             continue
         flagsList.append(flag)
 
-    _LOGGER.debug("Reading properties %s to flags %s", propsString, flagsList)
-
+    # _LOGGER.debug("Reading properties %s to flags %s", propsString, flagsList)
     return flagsList
 
 
@@ -100,21 +99,33 @@ def get_services_data(peripheral: btle.Peripheral) -> List[ServiceData]:
     _LOGGER.debug("getting services")
     services_list = peripheral.getServices()
     ret_list = []
+    ## serv: bluepy.btle.Service
     for serv in services_list:
         serv_uuid = str(serv.uuid)
         serv_name = serv.uuid.getCommonName()
-        _LOGGER.debug("Service: %s[%s]", serv_uuid, serv_name)
+        _LOGGER.debug("Service: %s [%s]", serv_uuid, serv_name)
         serv_data = ServiceData(serv_uuid, serv_name)
         ret_list.append(serv_data)
 
         charsList = serv.getCharacteristics()
-        for ch in charsList:
-            _LOGGER.debug("Char: %s h:%#x p:%s", ch, ch.getHandle(), ch.propertiesToString())
-            char_uuid = str(ch.uuid)
-            char_name = ch.uuid.getCommonName()
-            char_handle = ch.getHandle()
-            char_props = props_mask_to_list(ch)
-            serv_data.add_characteristic(char_uuid, char_name, char_handle, char_props)
+        ## char: bluepy.btle.Characteristic
+        for char in charsList:
+            char_uuid = str(char.uuid)
+            char_name = char.uuid.getCommonName()
+            _LOGGER.debug(
+                "  Char: %s [%s] h:%#x p:%s", char_uuid, char_name, char.getHandle(), char.propertiesToString()
+            )
+            char_handle = char.getHandle()
+            char_props = props_mask_to_list(char)
+            char_data = serv_data.add_characteristic(char_uuid, char_name, char_handle, char_props)
+            for desc in char.getDescriptors():
+                desc_uuid = str(desc.uuid)
+                _LOGGER.debug("    Desc: %s h:%#x", desc_uuid, desc.handle)
+                char_data.add_descriptor(desc_uuid, desc.handle)
+
+        # for desc in serv.getDescriptors():
+        #     _LOGGER.debug("  Desc: %s h:%#x", str(desc.uuid), desc.handle)
+
     return ret_list
 
 
@@ -213,11 +224,11 @@ class BluepyConnector(AbstractConnector):
         return self._peripheral.readCharacteristic(handle)
 
     @synchronized
-    def write_characteristic(self, handle: int, val):
+    def write_characteristic(self, handle: int, val, withResponse=False):
         if self._peripheral is None:
             raise InvalidStateError("not connected")
         try:
-            self._peripheral.writeCharacteristic(handle, val)
+            return self._peripheral.writeCharacteristic(handle, val, withResponse=withResponse)
         except:  # noqa
             _LOGGER.error("error writing to characteristic: %#x %s", handle, val)
             raise

@@ -223,7 +223,7 @@ class BleakConnector(AbstractConnector):
         _LOGGER.debug("new discovery: %s %s %s", scanEntry, isNewDev, isNewData)
 
     @synchronized
-    def write_characteristic(self, handle, val):
+    def write_characteristic(self, handle, val, withResponse=False):
         if self._peripheral is None:
             raise InvalidStateError("not connected")
         self._peripheral.writeCharacteristic(handle, val)
