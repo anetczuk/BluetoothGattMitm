@@ -57,18 +57,21 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _LOGGER = logging.getLogger(__name__)
 
 
-def configure_logger(logFile):
+def configure_logger(logFile=None):
     loggerFormat = "%(asctime)s,%(msecs)-3d %(levelname)-8s %(threadName)s [%(filename)s:%(lineno)d] %(message)s"
     loggerDate = "%Y-%m-%d %H:%M:%S"
 
     streamHandler = logging.StreamHandler(stream=sys.stdout)
-    fileHandler = logging.handlers.RotatingFileHandler(filename=logFile, maxBytes=1024 * 1024, backupCount=5)
+    fileHandler = None
+    if logFile:
+        fileHandler = logging.handlers.RotatingFileHandler(filename=logFile, maxBytes=1024 * 1024, backupCount=5)
 
     if sys.version_info >= (3, 3):
         #### for Python 3.3
-        logging.basicConfig(
-            format=loggerFormat, datefmt=loggerDate, level=logging.NOTSET, handlers=[streamHandler, fileHandler]
-        )
+        handlers = [streamHandler]
+        if fileHandler:
+            handlers.append(fileHandler)
+        logging.basicConfig(format=loggerFormat, datefmt=loggerDate, level=logging.NOTSET, handlers=handlers)
     else:
         #### for Python 2
         rootLogger = logging.getLogger()
@@ -80,9 +83,10 @@ def configure_logger(logFile):
         streamHandler.setFormatter(logFormatter)
         rootLogger.addHandler(streamHandler)
 
-        fileHandler.setLevel(logging.NOTSET)
-        fileHandler.setFormatter(logFormatter)
-        rootLogger.addHandler(fileHandler)
+        if fileHandler:
+            fileHandler.setLevel(logging.NOTSET)
+            fileHandler.setFormatter(logFormatter)
+            rootLogger.addHandler(fileHandler)
 
     asyncio_logger = logging.getLogger("asyncio")
     asyncio_logger.setLevel(logging.INFO)
@@ -109,6 +113,7 @@ def start_mitm(args: Dict[str, Any]):
         device_config: Dict[str, Any] = {}
         if deviceloadpath:
             device_config = dataio.load_from(deviceloadpath)
+            _LOGGER.info("Device config dict: %s", device_config)
 
         if connectto is None:
             connectto = device_config.get("connectto")
@@ -199,6 +204,20 @@ def find_iface_index(iface_data: str) -> int:
     return int(device_index_str)
 
 
+def find_interface(iface_data: str) -> int:
+    name_mac_list: List[List[str]] = get_hci_ifaces()
+    if len(name_mac_list) == 1:
+        iface_name = name_mac_list[0][0]
+        iface_name = iface_name[3:]
+        return int(iface_name)
+
+    iface = find_iface_index(iface_data)
+    if iface is None:
+        _LOGGER.error("unable to found adapter index by %s", iface_data)
+        sys.exit(1)
+    return iface
+
+
 def main():
     parser = argparse.ArgumentParser(description="Bluetooth GATT MITM")
     parser.add_argument(
@@ -254,16 +273,7 @@ def main():
     exitCode = 0
 
     try:
-        name_mac_list: List[List[str]] = get_hci_ifaces()
-        if len(name_mac_list) == 1:
-            args.iface = name_mac_list[0][0]
-            args.iface = args.iface[3:]
-        else:
-            args.iface = find_iface_index(args.iface)
-            if args.iface is None:
-                _LOGGER.error("unable to found adapter index by %s", args.iface)
-                sys.exit(exitCode)
-
+        args.iface = find_interface(args.iface)
         _LOGGER.info("Found adapter index: %s", args.iface)
 
         args_dict = vars(args)

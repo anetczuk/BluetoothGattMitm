@@ -89,30 +89,22 @@ class DescriptorMock(Descriptor):
 
 class CharacteristicMock(Characteristic):
     ## service - dbus service
+    ## flags - list of properties like "read" or "notify"
     def __init__(
-        self, btCharacteristic: CharacteristicData, bus, index: int, service: Service, connector: ServiceConnector
+        self,
+        chUuid: str,
+        cHandler: int,
+        flags: List[str],
+        bus,
+        index: int,
+        service: Service,
+        connector: ServiceConnector,
     ):
-        btUuid = btCharacteristic.uuid
-        chUuid = str(btUuid)
-        cHandler = btCharacteristic.getHandle()
-        flags = btCharacteristic.properties
-
-        _LOGGER.debug(
-            "Creating characteristic: %s[%s] h:%#x index:%#x flags: %s",
-            chUuid,
-            btCharacteristic.getCommonName(),
-            cHandler,
-            index,
-            flags,
-        )
-
         Characteristic.__init__(self, bus, index, chUuid, flags, service)
 
         ## instance of BluepyConnector
         self.connector: ServiceConnector = connector
         self.handler = cHandler
-
-        self._mock_descriptors(btCharacteristic, bus, connector)
 
         ## subscribe for notifications
         if self.connector:
@@ -128,7 +120,7 @@ class CharacteristicMock(Characteristic):
     #     data = bytearray(data)
     #     _LOGGER.debug("Received char %s notification data: [%s]", chUuid, to_hex_string(data))
 
-    def _mock_descriptors(self, btCharacteristic: CharacteristicData, bus, connector: ServiceConnector):
+    def configure_descriptors(self, btCharacteristic: CharacteristicData):
         desc_list = btCharacteristic.get_descriptors()
         descIndex = 0
         for desc_item in desc_list:
@@ -139,9 +131,11 @@ class CharacteristicMock(Characteristic):
                 ## because it won't work properly
                 _LOGGER.debug("Skipping default descriptor: %s", dUuid)
                 continue
-            desc = DescriptorMock(desc_item, bus, descIndex, ["read", "write"], self, connector)
+            desc = DescriptorMock(desc_item, self.bus, descIndex, ["read", "write"], self, self.connector)
             self.add_descriptor(desc)
             descIndex += 1
+
+    ## ==========================================
 
     def readValueHandler(self):
         if self.connector is None:
@@ -167,24 +161,21 @@ class CharacteristicMock(Characteristic):
         self.connector.write_characteristic(self.handler, data, withResponse=False)
 
     def startNotifyHandler(self):
+        if not self.connector:
+            return
         ## notify has priority over indicate
         if "notify" in self.prop_flags:
-            if not self.connector:
-                return
             _LOGGER.debug("Client registering for notifications on %s [%#x]", self.uuid, self.handler)
             self.connector.subscribe_for_notification(self.handler, self.notification_callback)
         else:
-            if not self.connector:
-                return
             _LOGGER.debug("Client registering for indications on %s [%#x]", self.uuid, self.handler)
             self.connector.subscribe_for_indication(self.handler, self.notification_callback)
 
     def stopNotifyHandler(self):
-        if self.connector:
-            ret = self.connector.unsubscribe_from_notification(self.handler, self.notification_callback)
-            _LOGGER.debug("Client unregistered from notifications on %s [%#x] %s", self.uuid, self.handler, ret)
-        else:
-            _LOGGER.debug("Client unregistered from notifications on %s [%#x]", self.uuid, self.handler)
+        if self.connector is None:
+            return
+        ret = self.connector.unsubscribe_from_notification(self.handler, self.notification_callback)
+        _LOGGER.debug("Client unregistered from notifications on %s [%#x] %s", self.uuid, self.handler, ret)
 
     def notification_callback(self, value):
         _LOGGER.debug("Notification callback to client on %s data: %s", self.uuid, repr(value))
@@ -211,21 +202,26 @@ class CharacteristicMock(Characteristic):
 
 
 class ServiceMock(Service):
-    def __init__(self, btService: ServiceData, bus, index, connector: ServiceConnector):
-        btUuid = btService.uuid
-        serviceUuid = str(btUuid)
-
-        _LOGGER.debug("Creating service: %s[%s]", serviceUuid, btService.getCommonName())
-
+    def __init__(self, serviceUuid: str, bus, index: int):
         Service.__init__(self, bus, index, serviceUuid, True)
 
-        self._mock_characteristics(btService, bus, connector)
-
-    def _mock_characteristics(self, btService: ServiceData, bus, connector: ServiceConnector):
+    def configure_characteristics(self, btService: ServiceData, connector: ServiceConnector):
         charsList: List[CharacteristicData] = btService.getCharacteristics()
         charIndex = 0
         for btCh in charsList:
-            char = CharacteristicMock(btCh, bus, charIndex, self, connector)
+            chUuid = str(btCh.uuid)
+            cHandler = btCh.getHandle()
+            flags = btCh.properties
+            _LOGGER.debug(
+                "Creating characteristic: %s[%s] h:%#x index:%#x flags: %s",
+                chUuid,
+                btCh.getCommonName(),
+                cHandler,
+                charIndex,
+                flags,
+            )
+            char = CharacteristicMock(chUuid, cHandler, flags, self.bus, charIndex, self, connector)
+            char.configure_descriptors(btCh)
             self.add_characteristic(char)
             charIndex += 1
 
@@ -307,8 +303,11 @@ class ApplicationMock(Application):
                 ## causes Failed to register application: org.bluez.Error.Failed: Failed to create entry in database
                 _LOGGER.debug("Skipping service: %s", uuid)
                 continue
+            serviceUuid = serv.uuid
+            _LOGGER.debug("Creating service: %s[%s]", serviceUuid, serv.getCommonName())
             serviceIndex += 1
-            service = ServiceMock(serv, self.bus, serviceIndex, connector)
+            service = ServiceMock(serviceUuid, self.bus, serviceIndex)
+            service.configure_characteristics(serv, connector)
             self.add_service(service)
 
         ## subscribing for "Service Changed" indication
