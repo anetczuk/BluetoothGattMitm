@@ -109,12 +109,10 @@ class CharacteristicMock(Characteristic):
         ## subscribe for notifications
         if self.connector:
             if flags.count("notify") > 0:
-                _LOGGER.debug("Subscribing for notification %s", chUuid)
-                self.connector.subscribe_for_notification(self.handler, self.notification_callback)
+                self._subscribeNotification()
 
             if flags.count("indicate") > 0:
-                _LOGGER.debug("Subscribing for indication %s", chUuid)
-                self.connector.subscribe_for_indication(self.handler, self.indication_callback)
+                self._subscribeIndication()
 
     # def _handle_notification(self, data):
     #     data = bytearray(data)
@@ -165,17 +163,26 @@ class CharacteristicMock(Characteristic):
             return
         ## notify has priority over indicate
         if "notify" in self.prop_flags:
-            _LOGGER.debug("Client registering for notifications on %s [%#x]", self.uuid, self.handler)
-            self.connector.subscribe_for_notification(self.handler, self.notification_callback)
+            self._subscribeNotification()
         else:
-            _LOGGER.debug("Client registering for indications on %s [%#x]", self.uuid, self.handler)
-            self.connector.subscribe_for_indication(self.handler, self.notification_callback)
+            self._subscribeIndication()
 
     def stopNotifyHandler(self):
         if self.connector is None:
             return
-        ret = self.connector.unsubscribe_from_notification(self.handler, self.notification_callback)
+        notification_handler = self.handler + 1
+        ret = self.connector.unsubscribe_from_notification(notification_handler, self.notification_callback)
         _LOGGER.debug("Client unregistered from notifications on %s [%#x] %s", self.uuid, self.handler, ret)
+
+    def _subscribeNotification(self):
+        notification_handler = self.handler + 1
+        _LOGGER.debug("Client registering for notifications on %s [%#x]", self.uuid, notification_handler)
+        self.connector.subscribe_for_notification(notification_handler, self.notification_callback)
+
+    def _subscribeIndication(self):
+        notification_handler = self.handler + 1
+        _LOGGER.debug("Client registering for indications on %s [%#x]", self.uuid, notification_handler)
+        self.connector.subscribe_for_indication(notification_handler, self.indication_callback)
 
     def notification_callback(self, value):
         _LOGGER.debug("Notification callback to client on %s data: %s", self.uuid, repr(value))
@@ -315,7 +322,8 @@ class ApplicationMock(Application):
             char_handle = ServiceData.find_characteristic_handle(service_list, "00002a05-0000-1000-8000-00805f9b34fb")
             if char_handle is not None:
                 _LOGGER.debug("Subscribing for indication of Service Changed")
-                connector.subscribe_for_indication(char_handle, self._service_changed_callback)
+                notification_handle = char_handle + 1
+                connector.subscribe_for_indication(notification_handle, self._service_changed_callback)
         else:
             _LOGGER.warning("Unable to listen to 'Service Changed' - no connection")
 
