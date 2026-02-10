@@ -1,5 +1,11 @@
 #!/bin/bash
 
+
+##
+## Show BT adapter information.
+##
+
+
 set -eu
 
 

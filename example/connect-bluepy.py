@@ -23,6 +23,10 @@
 # SOFTWARE.
 #
 
+#
+# Try to connect to device.
+#
+
 import sys
 import argparse
 import logging
@@ -43,8 +47,8 @@ def main():
     args = parser.parse_args()
     address = args.connect
 
-    # addrType = btle.ADDR_TYPE_PUBLIC
-    addrType = btle.ADDR_TYPE_RANDOM
+    addrType = btle.ADDR_TYPE_PUBLIC
+    # addrType = btle.ADDR_TYPE_RANDOM
     _LOGGER.debug(f"connecting to device {address} type: {addrType}")
     try:
         conn = btle.Peripheral()

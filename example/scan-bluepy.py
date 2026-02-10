@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+##
+## Scan nearby BT devices.
+##
+
 import sys
 import logging
 

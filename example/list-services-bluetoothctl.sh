@@ -1,5 +1,11 @@
 #!/bin/bash
 
+
+##
+## Connect to nearby BT devices and read services and characteristics.
+##
+
+
 set -eu
 
 

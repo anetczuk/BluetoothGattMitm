@@ -1,5 +1,11 @@
 #!/bin/bash
 
+
+##
+## Get features of local BT adapter.
+##
+
+
 set -eu
 
 

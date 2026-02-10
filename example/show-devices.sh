@@ -1,5 +1,11 @@
 #!/bin/bash
 
+
+##
+## Show information about local BT adapters.
+##
+
+
 set -eux
 
 
